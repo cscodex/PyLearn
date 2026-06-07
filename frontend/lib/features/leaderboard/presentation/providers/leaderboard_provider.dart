@@ -4,6 +4,6 @@ import '../../domain/entities/leaderboard_user.dart';
 
 final leaderboardProvider = FutureProvider<LeaderboardResponse>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('/leaderboard');
+  final response = await dio.get('/leaderboard/');
   return LeaderboardResponse.fromJson(response.data);
 });
