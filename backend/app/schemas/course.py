@@ -1,9 +1,17 @@
 import uuid
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, AliasChoices
 from datetime import datetime
+from pydantic.alias_generators import to_camel
 
-class LessonBase(BaseModel):
+class CamelCaseBaseModel(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True
+    )
+
+class LessonBase(CamelCaseBaseModel):
     title: str
     content_type: str
     content_body: Optional[Dict[str, Any]] = None
@@ -16,10 +24,7 @@ class LessonResponse(LessonBase):
     id: int
     chapter_id: int
 
-    class Config:
-        from_attributes = True
-
-class ChapterBase(BaseModel):
+class ChapterBase(CamelCaseBaseModel):
     title: str
     description: Optional[str] = None
     order_index: int
@@ -29,10 +34,7 @@ class ChapterResponse(ChapterBase):
     module_id: int
     lessons: List[LessonResponse] = []
 
-    class Config:
-        from_attributes = True
-
-class ModuleBase(BaseModel):
+class ModuleBase(CamelCaseBaseModel):
     title: str
     description: Optional[str] = None
     order_index: int
@@ -42,15 +44,12 @@ class ModuleResponse(ModuleBase):
     course_id: int
     chapters: List[ChapterResponse] = []
 
-    class Config:
-        from_attributes = True
-
-class CourseBase(BaseModel):
+class CourseBase(CamelCaseBaseModel):
     title: str
     slug: str
     description: Optional[str] = None
     thumbnail_url: Optional[str] = None
-    difficulty_level: str
+    difficulty_level: str = Field(validation_alias=AliasChoices('difficulty', 'difficulty_level'))
     is_published: bool = False
 
 class CourseResponse(CourseBase):
@@ -59,18 +58,12 @@ class CourseResponse(CourseBase):
     updated_at: datetime
     modules: List[ModuleResponse] = []
 
-    class Config:
-        from_attributes = True
-
 class CourseListResponse(CourseBase):
     id: int
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
-class EnrollmentBase(BaseModel):
+class EnrollmentBase(CamelCaseBaseModel):
     course_id: int
 
 class EnrollmentResponse(EnrollmentBase):
@@ -79,6 +72,3 @@ class EnrollmentResponse(EnrollmentBase):
     enrolled_at: datetime
     status: str
     progress_percentage: float
-
-    class Config:
-        from_attributes = True
