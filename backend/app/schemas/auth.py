@@ -1,6 +1,14 @@
 import uuid
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic.alias_generators import to_camel
+
+class CamelCaseBaseModel(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True
+    )
 
 class Token(BaseModel):
     access_token: str
@@ -12,16 +20,16 @@ class TokenPayload(BaseModel):
     exp: Optional[int] = None
     type: Optional[str] = None
 
-class UserLogin(BaseModel):
+class UserLogin(CamelCaseBaseModel):
     email: EmailStr
     password: str
 
-class UserCreate(BaseModel):
+class UserCreate(CamelCaseBaseModel):
     email: EmailStr
     password: str
     full_name: str
 
-class UserResponse(BaseModel):
+class UserResponse(CamelCaseBaseModel):
     id: uuid.UUID
     email: EmailStr
     full_name: str
@@ -29,8 +37,5 @@ class UserResponse(BaseModel):
     is_active: bool
     email_verified: bool
 
-    class Config:
-        from_attributes = True
-
-class RefreshTokenRequest(BaseModel):
+class RefreshTokenRequest(CamelCaseBaseModel):
     refresh_token: str

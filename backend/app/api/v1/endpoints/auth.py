@@ -47,6 +47,13 @@ async def login_access_token(
         "token_type": "bearer"
     }
 
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_profile(
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Get current user."""
+    return current_user
+
 @router.post("/register", response_model=UserResponse)
 async def register_user(
     user_in: UserCreate,
