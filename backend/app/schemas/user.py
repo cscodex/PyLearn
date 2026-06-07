@@ -29,3 +29,11 @@ class LeaderboardUser(CamelCaseBaseModel):
 class LeaderboardResponse(CamelCaseBaseModel):
     users: list[LeaderboardUser]
     current_user_rank: Optional[int]
+
+class UserAdminResponse(CamelCaseBaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    created_at: str

@@ -1,0 +1,39 @@
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, List
+import uuid
+from pydantic.alias_generators import to_camel
+from datetime import datetime
+
+class CamelCaseBaseModel(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True
+    )
+
+class GroupCreate(CamelCaseBaseModel):
+    name: str
+
+class GroupResponse(CamelCaseBaseModel):
+    id: int
+    name: str
+    creator_id: uuid.UUID
+    created_at: datetime
+    member_count: Optional[int] = 0
+
+class GroupStudentCreate(CamelCaseBaseModel):
+    email: str
+    full_name: str
+    password: str
+
+class GroupAssignmentCreate(CamelCaseBaseModel):
+    course_id: int
+    assignment_type: str = "mandatory" # 'mandatory' or 'recommended'
+
+class GroupAssignmentResponse(CamelCaseBaseModel):
+    id: int
+    group_id: int
+    course_id: int
+    assigned_by: uuid.UUID
+    assignment_type: str
+    created_at: datetime
