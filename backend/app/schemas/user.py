@@ -9,8 +9,10 @@ class CamelCaseBaseModel(BaseModel):
         from_attributes=True
     )
 
+import uuid
+
 class UserStatsResponse(CamelCaseBaseModel):
-    id: int
+    id: uuid.UUID
     full_name: str
     email: str
     xp: int
@@ -18,7 +20,7 @@ class UserStatsResponse(CamelCaseBaseModel):
     profile_picture_url: Optional[str]
 
 class LeaderboardUser(CamelCaseBaseModel):
-    id: int
+    id: uuid.UUID
     full_name: str
     xp: int
     profile_picture_url: Optional[str]
