@@ -24,10 +24,16 @@ class LessonResponse(LessonBase):
     id: int
     chapter_id: int
 
+class LessonCreate(LessonBase):
+    pass
+
 class ChapterBase(CamelCaseBaseModel):
     title: str
     description: Optional[str] = None
     order_index: int
+
+class ChapterCreate(ChapterBase):
+    pass
 
 class ChapterResponse(ChapterBase):
     id: int
@@ -38,6 +44,9 @@ class ModuleBase(CamelCaseBaseModel):
     title: str
     description: Optional[str] = None
     order_index: int
+
+class ModuleCreate(ModuleBase):
+    pass
 
 class ModuleResponse(ModuleBase):
     id: int
@@ -51,6 +60,9 @@ class CourseBase(CamelCaseBaseModel):
     thumbnail_url: Optional[str] = None
     difficulty_level: str = Field(validation_alias=AliasChoices('difficulty', 'difficulty_level'))
     is_published: bool = False
+
+class CourseCreate(CourseBase):
+    pass
 
 class CourseResponse(CourseBase):
     id: int
