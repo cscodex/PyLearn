@@ -42,6 +42,25 @@ async def get_enrolled_courses(
     courses = result.scalars().all()
     return courses
 
+@router.get("/recommended", response_model=List[CourseListResponse])
+async def get_recommended_courses(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Retrieve courses recommended for the user via GroupAssignments."""
+    from app.models.group import GroupAssignment, GroupMember
+    result = await db.execute(
+        select(Course)
+        .join(GroupAssignment, GroupAssignment.course_id == Course.id)
+        .join(GroupMember, GroupMember.group_id == GroupAssignment.group_id)
+        .filter(GroupMember.user_id == current_user.id)
+        .filter(GroupAssignment.assignment_type == "recommended")
+    )
+    courses = result.scalars().all()
+    # Deduplicate in case of multiple groups recommending the same course
+    unique_courses = list({c.id: c for c in courses}.values())
+    return unique_courses
+
 @router.get("/{course_id}", response_model=CourseResponse)
 async def get_course(
     course_id: int,
