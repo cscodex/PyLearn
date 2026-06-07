@@ -8,7 +8,7 @@ import uuid
 from app.api import deps
 from app.models.user import User
 from app.models.group import Group, GroupMember, GroupAssignment
-from app.models.course import Enrollment
+from app.models.progress import Enrollment
 from app.schemas.group import GroupCreate, GroupResponse, GroupStudentCreate, GroupAssignmentCreate, GroupAssignmentResponse
 from app.core.security import get_password_hash
 
