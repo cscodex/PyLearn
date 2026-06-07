@@ -15,7 +15,7 @@ class CourseRepository {
 
   Future<List<Course>> getCourses() async {
     try {
-      final response = await _dio.get('/courses');
+      final response = await _dio.get('/courses/');
       return (response.data as List)
           .map((json) => Course.fromJson(json))
           .toList();

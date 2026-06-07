@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/profile_provider.dart';
+import '../../auth/presentation/providers/auth_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -16,7 +18,11 @@ class ProfileScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Settings feature coming soon!')),
+              );
+            },
           )
         ],
       ),
@@ -86,19 +92,30 @@ class ProfileScreen extends ConsumerWidget {
                   leading: const Icon(Icons.emoji_events),
                   title: const Text('Badges & Achievements'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Achievements coming soon!')),
+                    );
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.history),
                   title: const Text('Learning History'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {},
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('History coming soon!')),
+                    );
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.logout, color: Colors.red),
                   title: const Text('Log Out', style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    // Implement Logout
+                  onTap: () async {
+                    await ref.read(authProvider.notifier).logout();
+                    if (context.mounted) {
+                      context.go('/login');
+                    }
                   },
                 ),
               ],
