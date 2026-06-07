@@ -21,68 +21,81 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(width: 16),
         ],
       ),
-      body: coursesAsync.when(
-        data: (courses) {
-          if (courses.isEmpty) {
-            return const Center(child: Text('No courses available yet.'));
-          }
-          return RefreshIndicator(
-            onRefresh: () => ref.refresh(allCoursesProvider.future),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                int crossAxisCount = 1;
-                if (constraints.maxWidth >= 900) {
-                  crossAxisCount = 3;
-                } else if (constraints.maxWidth >= 600) {
-                  crossAxisCount = 2;
-                }
-
-                if (crossAxisCount == 1) {
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: courses.length,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _buildCourseCard(context, theme, courses[index]),
-                      );
-                    },
-                  );
-                } else {
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      childAspectRatio: 0.85,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    itemCount: courses.length,
-                    itemBuilder: (context, index) {
-                      return _buildCourseCard(context, theme, courses[index]);
-                    },
-                  );
-                }
-              },
-            ),
-          );
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.refresh(allCoursesProvider.future);
+          ref.refresh(enrolledCoursesProvider.future);
+          ref.refresh(recommendedCoursesProvider.future);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('Error loading courses: $error'),
-              TextButton(
-                onPressed: () => ref.refresh(allCoursesProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildCourseSection(
+              context,
+              ref,
+              'Continue Learning',
+              ref.watch(enrolledCoursesProvider),
+              emptyMessage: 'You are not enrolled in any courses yet.',
+            ),
+            const SizedBox(height: 24),
+            _buildCourseSection(
+              context,
+              ref,
+              'Recommended for You',
+              ref.watch(recommendedCoursesProvider),
+              emptyMessage: 'No recommended courses at this time.',
+            ),
+            const SizedBox(height: 24),
+            _buildCourseSection(
+              context,
+              ref,
+              'All Courses',
+              ref.watch(allCoursesProvider),
+              emptyMessage: 'No courses available.',
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCourseSection(
+    BuildContext context,
+    WidgetRef ref,
+    String title,
+    AsyncValue<List<dynamic>> asyncCourses,
+    {required String emptyMessage}
+  ) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        asyncCourses.when(
+          data: (courses) {
+            if (courses.isEmpty) return Text(emptyMessage, style: TextStyle(color: Colors.grey.shade600));
+            return SizedBox(
+              height: 280,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: courses.length,
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    width: 280,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: _buildCourseCard(context, theme, courses[index]),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+          loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator())),
+          error: (err, stack) => Text('Error: $err', style: const TextStyle(color: Colors.red)),
+        ),
+      ],
     );
   }
 

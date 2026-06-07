@@ -12,6 +12,11 @@ final enrolledCoursesProvider = FutureProvider<List<Course>>((ref) async {
   return repository.getEnrolledCourses();
 });
 
+final recommendedCoursesProvider = FutureProvider<List<Course>>((ref) async {
+  final repository = ref.watch(courseRepositoryProvider);
+  return repository.getRecommendedCourses();
+});
+
 final courseDetailsProvider = FutureProvider.family<Course, int>((ref, id) async {
   final repository = ref.watch(courseRepositoryProvider);
   return repository.getCourseDetails(id);

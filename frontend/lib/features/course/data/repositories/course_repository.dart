@@ -35,6 +35,17 @@ class CourseRepository {
     }
   }
 
+  Future<List<Course>> getRecommendedCourses() async {
+    try {
+      final response = await _dio.get('/courses/recommended');
+      return (response.data as List)
+          .map((json) => Course.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch recommended courses: $e');
+    }
+  }
+
   Future<Course> getCourseDetails(int id) async {
     try {
       final response = await _dio.get('/courses/$id');

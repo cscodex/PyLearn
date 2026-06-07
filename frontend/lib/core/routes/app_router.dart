@@ -10,6 +10,8 @@ import '../../features/course/presentation/pages/dashboard_screen.dart';
 import '../../features/course/presentation/pages/course_detail_screen.dart';
 import '../../features/course/presentation/pages/ide_screen.dart';
 import '../../features/course/presentation/pages/quiz_screen.dart';
+import '../../features/profile/presentation/pages/settings_screen.dart';
+import '../../features/creator/presentation/pages/group_management_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -55,6 +57,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = int.parse(state.pathParameters['lessonId']!);
           return QuizScreen(lessonId: id);
         },
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/creator/groups',
+        builder: (context, state) => const GroupManagementScreen(),
       ),
     ],
   );
