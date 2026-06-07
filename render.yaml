@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: pythontutor-api
+    env: python
+    region: ohio
+    plan: free
+    branch: main
+    rootDir: backend
+    dockerCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CLOUDINARY_URL
+        sync: false
