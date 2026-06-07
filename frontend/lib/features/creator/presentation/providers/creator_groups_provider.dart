@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/network/dio_client.dart';
 
 class CreatorGroup {
   final int id;
@@ -20,34 +19,28 @@ class CreatorGroup {
     return CreatorGroup(
       id: json['id'],
       name: json['name'],
-      creatorId: json['creatorId'] ?? '',
-      memberCount: json['memberCount'] ?? 0,
+      creatorId: json['creatorId'] ?? json['creator_id'] ?? '',
+      memberCount: json['memberCount'] ?? json['member_count'] ?? 0,
     );
   }
 }
 
-class CreatorGroupsNotifier extends StateNotifier<AsyncValue<List<CreatorGroup>>> {
-  final String? token;
-  static const baseUrl = 'https://pythontutor-api.onrender.com/api/v1';
+class CreatorGroupsNotifier extends Notifier<AsyncValue<List<CreatorGroup>>> {
+  Dio get _dio => ref.read(dioProvider);
 
-  CreatorGroupsNotifier(this.token) : super(const AsyncValue.loading()) {
-    if (token != null) {
-      fetchGroups();
-    }
+  @override
+  AsyncValue<List<CreatorGroup>> build() {
+    fetchGroups();
+    return const AsyncValue.loading();
   }
 
   Future<void> fetchGroups() async {
     state = const AsyncValue.loading();
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/creator/groups/'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await _dio.get('/creator/groups/');
 
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
+        final List data = response.data;
         final groups = data.map((e) => CreatorGroup.fromJson(e)).toList();
         state = AsyncValue.data(groups);
       } else {
@@ -59,15 +52,10 @@ class CreatorGroupsNotifier extends StateNotifier<AsyncValue<List<CreatorGroup>>
   }
 
   Future<bool> createGroup(String name) async {
-    if (token == null) return false;
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/creator/groups/'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'name': name}),
+      final response = await _dio.post(
+        '/creator/groups/',
+        data: {'name': name},
       );
 
       if (response.statusCode == 200) {
@@ -81,19 +69,14 @@ class CreatorGroupsNotifier extends StateNotifier<AsyncValue<List<CreatorGroup>>
   }
 
   Future<bool> addStudentToGroup(int groupId, String email, String fullName, String password) async {
-    if (token == null) return false;
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/creator/groups/$groupId/users'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
+      final response = await _dio.post(
+        '/creator/groups/$groupId/users',
+        data: {
           'email': email,
-          'fullName': fullName,
+          'full_name': fullName,
           'password': password,
-        }),
+        },
       );
 
       if (response.statusCode == 200) {
@@ -107,27 +90,93 @@ class CreatorGroupsNotifier extends StateNotifier<AsyncValue<List<CreatorGroup>>
   }
 
   Future<bool> assignCourse(int groupId, int courseId, bool isMandatory) async {
-    if (token == null) return false;
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/creator/groups/$groupId/assign'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
+      final response = await _dio.post(
+        '/creator/groups/$groupId/assign',
+        data: {
+          'course_id': courseId,
+          'assignment_type': isMandatory ? 'mandatory' : 'recommended',
         },
-        body: jsonEncode({
-          'courseId': courseId,
-          'assignmentType': isMandatory ? 'mandatory' : 'recommended',
-        }),
       );
       return response.statusCode == 200;
     } catch (e) {
       return false;
     }
   }
+
+  Future<bool> deleteGroup(int groupId) async {
+    try {
+      final response = await _dio.delete('/creator/groups/$groupId');
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        fetchGroups();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> updateGroup(int groupId, String name) async {
+    try {
+      final response = await _dio.put(
+        '/creator/groups/$groupId',
+        data: {'name': name},
+      );
+      if (response.statusCode == 200) {
+        fetchGroups();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> addStudentsBulk(int groupId, List<String> userIds) async {
+    try {
+      final response = await _dio.post(
+        '/creator/groups/$groupId/users/bulk',
+        data: {'user_ids': userIds},
+      );
+      if (response.statusCode == 200) {
+        fetchGroups();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> assignCoursesBulk(int groupId, List<int> courseIds, bool isMandatory) async {
+    try {
+      final response = await _dio.post(
+        '/creator/groups/$groupId/assign/bulk',
+        data: {
+          'course_ids': courseIds,
+          'assignment_type': isMandatory ? 'mandatory' : 'recommended',
+        },
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchStudents(String query) async {
+    try {
+      final response = await _dio.get('/creator/groups/users/search', queryParameters: {'query': query});
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
 }
 
-final creatorGroupsProvider = StateNotifierProvider<CreatorGroupsNotifier, AsyncValue<List<CreatorGroup>>>((ref) {
-  final authState = ref.watch(authProvider);
-  return CreatorGroupsNotifier(authState.token);
+final creatorGroupsProvider = NotifierProvider<CreatorGroupsNotifier, AsyncValue<List<CreatorGroup>>>(() {
+  return CreatorGroupsNotifier();
 });

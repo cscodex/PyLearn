@@ -37,3 +37,8 @@ class UserAdminResponse(CamelCaseBaseModel):
     role: str
     is_active: bool
     created_at: str
+
+class UserAdminUpdate(CamelCaseBaseModel):
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    role: Optional[str] = None

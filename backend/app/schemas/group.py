@@ -37,3 +37,13 @@ class GroupAssignmentResponse(CamelCaseBaseModel):
     assigned_by: uuid.UUID
     assignment_type: str
     created_at: datetime
+
+class GroupUpdate(CamelCaseBaseModel):
+    name: Optional[str] = None
+
+class GroupAddStudentsBulk(CamelCaseBaseModel):
+    user_ids: List[uuid.UUID]
+
+class GroupAssignCoursesBulk(CamelCaseBaseModel):
+    course_ids: List[int]
+    assignment_type: str = "mandatory"

@@ -17,7 +17,7 @@ class QuestionOptionResponse(QuestionOptionBase):
 class QuestionBase(CamelCaseBaseModel):
     question_type: str
     question_text: str
-    question_data: Dict[str, Any]
+    question_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
     explanation: Optional[str] = None
     difficulty: str = "medium"
     points: int = 1

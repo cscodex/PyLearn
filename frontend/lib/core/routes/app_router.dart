@@ -12,6 +12,9 @@ import '../../features/course/presentation/pages/ide_screen.dart';
 import '../../features/course/presentation/pages/quiz_screen.dart';
 import '../../features/profile/presentation/pages/settings_screen.dart';
 import '../../features/creator/presentation/pages/group_management_screen.dart';
+import '../../features/creator/presentation/pages/quiz_builder_screen.dart';
+import '../../features/creator/presentation/pages/creator_enrollment_tracking_screen.dart';
+import '../../features/creator/presentation/pages/curriculum_builder_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -65,6 +68,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/creator/groups',
         builder: (context, state) => const GroupManagementScreen(),
+      ),
+      GoRoute(
+        path: '/creator/course/new',
+        builder: (context, state) => const CurriculumBuilderScreen(),
+      ),
+      GoRoute(
+        path: '/creator/quiz_builder/:lessonId',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['lessonId']!);
+          return QuizBuilderScreen(lessonId: id);
+        },
+      ),
+      GoRoute(
+        path: '/creator/enrollments',
+        builder: (context, state) => const CreatorEnrollmentTrackingScreen(),
       ),
     ],
   );

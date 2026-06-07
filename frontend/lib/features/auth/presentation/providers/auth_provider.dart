@@ -20,15 +20,13 @@ class AuthState {
   }
 }
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.watch(dioProvider));
-});
+class AuthNotifier extends Notifier<AuthState> {
+  Dio get _dio => ref.read(dioProvider);
 
-class AuthNotifier extends StateNotifier<AuthState> {
-  final Dio _dio;
-
-  AuthNotifier(this._dio) : super(AuthState()) {
+  @override
+  AuthState build() {
     _checkAuth();
+    return AuthState();
   }
 
   Future<void> _checkAuth() async {
@@ -50,7 +48,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final response = await _dio.post(
-        '/auth/login/access-token',
+        '/auth/login',
         data: {
           'username': email,
           'password': password,
@@ -89,3 +87,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = AuthState();
   }
 }
+
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(() {
+  return AuthNotifier();
+});

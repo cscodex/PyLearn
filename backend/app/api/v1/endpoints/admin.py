@@ -98,3 +98,105 @@ async def unblock_user(
         is_active=user.is_active,
         created_at=user.created_at.isoformat() if user.created_at else ""
     )
+
+@router.delete("/users/{user_id}", response_model=dict)
+async def delete_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """
+    Delete a user completely. Only accessible to admins.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    await db.delete(user)
+    await db.commit()
+    
+    return {"status": "success", "message": "User deleted"}
+
+from app.schemas.user import UserAdminUpdate
+
+@router.put("/users/{user_id}", response_model=UserAdminResponse)
+async def update_user(
+    user_id: uuid.UUID,
+    user_in: UserAdminUpdate,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """
+    Update a user's details. Only accessible to admins.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if user_in.email is not None:
+        user.email = user_in.email
+    if user_in.full_name is not None:
+        user.full_name = user_in.full_name
+    if user_in.role is not None:
+        user.role = user_in.role
+        
+    await db.commit()
+    await db.refresh(user)
+    
+    return UserAdminResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at.isoformat() if user.created_at else ""
+    )
+
+from app.models.progress import Enrollment
+from app.models.course import Course
+from app.schemas.course import AdminEnrollmentResponse
+
+@router.get("/enrollments", response_model=List[AdminEnrollmentResponse])
+async def list_all_enrollments(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """
+    Retrieve all enrollments across the platform. Only accessible to admins.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    result = await db.execute(
+        select(Enrollment, User.full_name, Course.title)
+        .join(User, User.id == Enrollment.user_id)
+        .join(Course, Course.id == Enrollment.course_id)
+        .offset(skip).limit(limit)
+    )
+    
+    rows = result.all()
+    response = []
+    for row in rows:
+        enrollment, user_name, course_title = row
+        response.append(AdminEnrollmentResponse(
+            id=enrollment.id,
+            user_id=enrollment.user_id,
+            user_name=user_name,
+            course_id=enrollment.course_id,
+            course_title=course_title,
+            enrolled_at=enrollment.enrolled_at,
+            status=enrollment.status,
+            progress_percentage=float(enrollment.progress_percentage)
+        ))
+        
+    return response

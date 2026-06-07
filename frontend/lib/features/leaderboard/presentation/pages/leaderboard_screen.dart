@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/leaderboard_provider.dart';
 
+import '../../../auth/presentation/providers/auth_provider.dart';
+
 class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});
 
@@ -9,6 +11,8 @@ class LeaderboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final leaderboardAsync = ref.watch(leaderboardProvider);
+    final user = ref.watch(authProvider).user;
+    final isStaff = (user?.isAdmin ?? false) || (user?.isCreator ?? false);
 
     return Scaffold(
       appBar: AppBar(
@@ -24,7 +28,7 @@ class LeaderboardScreen extends ConsumerWidget {
 
           return Column(
             children: [
-              if (data.currentUserRank != null)
+              if (data.currentUserRank != null && !isStaff)
                 Container(
                   padding: const EdgeInsets.all(16),
                   color: theme.colorScheme.primaryContainer.withOpacity(0.3),

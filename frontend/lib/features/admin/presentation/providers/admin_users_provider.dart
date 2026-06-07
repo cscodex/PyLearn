@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/network/dio_client.dart';
 
 class AdminUser {
   final String id;
@@ -23,38 +22,31 @@ class AdminUser {
   factory AdminUser.fromJson(Map<String, dynamic> json) {
     return AdminUser(
       id: json['id'],
-      email: json['email'],
-      fullName: json['fullName'] ?? '',
+      email: json['email'] ?? '',
+      fullName: json['fullName'] ?? json['full_name'] ?? '',
       role: json['role'] ?? 'student',
-      isActive: json['isActive'] ?? true,
-      createdAt: json['createdAt'] ?? '',
+      isActive: json['isActive'] ?? json['is_active'] ?? true,
+      createdAt: json['createdAt'] ?? json['created_at'] ?? '',
     );
   }
 }
 
-class AdminUsersNotifier extends StateNotifier<AsyncValue<List<AdminUser>>> {
-  final String? token;
-  // TODO: Use env config for url
-  static const baseUrl = 'https://pythontutor-api.onrender.com/api/v1';
+class AdminUsersNotifier extends Notifier<AsyncValue<List<AdminUser>>> {
+  Dio get _dio => ref.read(dioProvider);
 
-  AdminUsersNotifier(this.token) : super(const AsyncValue.loading()) {
-    if (token != null) {
-      fetchUsers();
-    }
+  @override
+  AsyncValue<List<AdminUser>> build() {
+    fetchUsers();
+    return const AsyncValue.loading();
   }
 
   Future<void> fetchUsers() async {
     state = const AsyncValue.loading();
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/admin/users'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await _dio.get('/admin/users');
 
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
+        final List data = response.data;
         final users = data.map((e) => AdminUser.fromJson(e)).toList();
         state = AsyncValue.data(users);
       } else {
@@ -66,16 +58,9 @@ class AdminUsersNotifier extends StateNotifier<AsyncValue<List<AdminUser>>> {
   }
 
   Future<void> toggleBlockStatus(String userId, bool currentStatus) async {
-    if (token == null) return;
-    
     final action = currentStatus ? 'block' : 'unblock';
     try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/admin/users/$userId/$action'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await _dio.put('/admin/users/$userId/$action');
 
       if (response.statusCode == 200) {
         // Optimistically update UI
@@ -96,8 +81,54 @@ class AdminUsersNotifier extends StateNotifier<AsyncValue<List<AdminUser>>> {
           }).toList();
           state = AsyncValue.data(updatedUsers);
         }
-      } else {
-        // Could show error snackbar
+      }
+    } catch (e) {
+      // Handle error
+    }
+  }
+
+  Future<void> deleteUser(String userId) async {
+    try {
+      final response = await _dio.delete('/admin/users/$userId');
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        if (state.hasValue) {
+          final users = state.value!;
+          state = AsyncValue.data(users.where((u) => u.id != userId).toList());
+        }
+      }
+    } catch (e) {
+      // Handle error
+    }
+  }
+
+  Future<void> updateUser(String userId, String email, String fullName, String role) async {
+    try {
+      final response = await _dio.put(
+        '/admin/users/$userId',
+        data: {
+          'email': email,
+          'full_name': fullName,
+          'role': role,
+        },
+      );
+      if (response.statusCode == 200) {
+        if (state.hasValue) {
+          final users = state.value!;
+          final updatedUsers = users.map((u) {
+            if (u.id == userId) {
+              return AdminUser(
+                id: u.id,
+                email: email,
+                fullName: fullName,
+                role: role,
+                isActive: u.isActive,
+                createdAt: u.createdAt,
+              );
+            }
+            return u;
+          }).toList();
+          state = AsyncValue.data(updatedUsers);
+        }
       }
     } catch (e) {
       // Handle error
@@ -105,7 +136,6 @@ class AdminUsersNotifier extends StateNotifier<AsyncValue<List<AdminUser>>> {
   }
 }
 
-final adminUsersProvider = StateNotifierProvider<AdminUsersNotifier, AsyncValue<List<AdminUser>>>((ref) {
-  final authState = ref.watch(authProvider);
-  return AdminUsersNotifier(authState.token);
+final adminUsersProvider = NotifierProvider<AdminUsersNotifier, AsyncValue<List<AdminUser>>>(() {
+  return AdminUsersNotifier();
 });

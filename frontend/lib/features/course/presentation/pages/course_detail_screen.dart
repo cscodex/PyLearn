@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/course_provider.dart';
+import '../../data/repositories/course_repository.dart';
 
 class CourseDetailScreen extends ConsumerWidget {
   final int courseId;
@@ -70,11 +71,25 @@ class CourseDetailScreen extends ConsumerWidget {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
-                              onPressed: () {
-                                // TODO: Implement Enrollment logic and navigation to Ide
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Enrolling...')),
-                                );
+                              onPressed: () async {
+                                final repo = ref.read(courseRepositoryProvider);
+                                final success = await repo.enrollInCourse(courseId);
+                                if (context.mounted) {
+                                  if (success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Successfully enrolled!')),
+                                    );
+                                    ref.refresh(enrolledCoursesProvider);
+                                    ref.refresh(courseDetailsProvider(courseId));
+                                    if (course.modules.isNotEmpty && course.modules.first.chapters.isNotEmpty) {
+                                      context.push('/ide/${course.modules.first.chapters.first.id}');
+                                    }
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Failed to enroll or already enrolled.')),
+                                    );
+                                  }
+                                }
                               },
                               style: ElevatedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(vertical: 16),

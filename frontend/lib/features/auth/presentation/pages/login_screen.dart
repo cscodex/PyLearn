@@ -148,6 +148,79 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
                 Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'DEMO ACCOUNTS',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          _emailController.text = 'student@example.com';
+                          _passwordController.text = 'password123';
+                          final success = await ref.read(authProvider.notifier).login(
+                            'student@example.com',
+                            'password123',
+                          );
+                          if (success && mounted) {
+                            context.go('/dashboard');
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                        child: const Text('Student'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          _emailController.text = 'creator@example.com';
+                          _passwordController.text = 'password123';
+                          final success = await ref.read(authProvider.notifier).login(
+                            'creator@example.com',
+                            'password123',
+                          );
+                          if (success && mounted) {
+                            context.go('/dashboard');
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                        child: const Text('Creator'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          _emailController.text = 'admin@example.com';
+                          _passwordController.text = 'password123';
+                          final success = await ref.read(authProvider.notifier).login(
+                            'admin@example.com',
+                            'password123',
+                          );
+                          if (success && mounted) {
+                            context.go('/dashboard');
+                          }
+                        },
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                        child: const Text('Admin'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text("Don't have an account?"),

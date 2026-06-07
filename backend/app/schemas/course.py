@@ -84,3 +84,13 @@ class EnrollmentResponse(EnrollmentBase):
     enrolled_at: datetime
     status: str
     progress_percentage: float
+
+class AdminEnrollmentResponse(CamelCaseBaseModel):
+    id: int
+    user_id: uuid.UUID
+    user_name: str
+    course_id: int
+    course_title: str
+    enrolled_at: datetime
+    status: str
+    progress_percentage: float

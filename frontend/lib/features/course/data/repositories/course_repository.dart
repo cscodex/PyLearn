@@ -54,4 +54,13 @@ class CourseRepository {
       throw Exception('Failed to fetch course details: $e');
     }
   }
+
+  Future<bool> enrollInCourse(int id) async {
+    try {
+      final response = await _dio.post('/courses/$id/enroll');
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
 }

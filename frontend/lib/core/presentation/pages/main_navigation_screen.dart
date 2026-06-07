@@ -4,6 +4,7 @@ import '../../../features/course/presentation/pages/dashboard_screen.dart';
 import '../../../features/leaderboard/presentation/pages/leaderboard_screen.dart';
 import '../../../features/profile/presentation/pages/profile_screen.dart';
 import '../../../features/admin/presentation/pages/admin_dashboard_screen.dart';
+import '../../../features/creator/presentation/pages/creator_dashboard_screen.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 
 class MainNavigationScreen extends ConsumerStatefulWidget {
@@ -21,9 +22,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     final theme = Theme.of(context);
     final user = ref.watch(authProvider).user;
     final isAdmin = user?.isAdmin ?? false;
+    final isCreator = user?.isCreator ?? false;
 
     final List<Widget> screens = [
       const DashboardScreen(),
+      if (isCreator) const CreatorDashboardScreen(),
       const LeaderboardScreen(),
       const ProfileScreen(),
       if (isAdmin) const AdminDashboardScreen(),
@@ -40,10 +43,16 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         selectedIcon: Icon(Icons.school),
         label: Text('Learn'),
       ),
+      if (isCreator)
+        const NavigationRailDestination(
+          icon: Icon(Icons.edit_document),
+          selectedIcon: Icon(Icons.edit_document),
+          label: Text('Studio'),
+        ),
       const NavigationRailDestination(
         icon: Icon(Icons.leaderboard_outlined),
         selectedIcon: Icon(Icons.leaderboard),
-        label: Text('Rank'),
+        label: Text('Leaderboard'),
       ),
       const NavigationRailDestination(
         icon: Icon(Icons.person_outline),
@@ -64,10 +73,16 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         selectedIcon: Icon(Icons.school),
         label: 'Learn',
       ),
+      if (isCreator)
+        const NavigationDestination(
+          icon: Icon(Icons.edit_document),
+          selectedIcon: Icon(Icons.edit_document),
+          label: 'Studio',
+        ),
       const NavigationDestination(
         icon: Icon(Icons.leaderboard_outlined),
         selectedIcon: Icon(Icons.leaderboard),
-        label: 'Rank',
+        label: 'Leaderboard',
       ),
       const NavigationDestination(
         icon: Icon(Icons.person_outline),

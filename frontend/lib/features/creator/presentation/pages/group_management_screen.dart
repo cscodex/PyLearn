@@ -32,7 +32,19 @@ class GroupManagementScreen extends ConsumerWidget {
               final group = groups[index];
               return Card(
                 child: ExpansionTile(
-                  title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 20),
+                        onPressed: () => _showEditGroupDialog(context, ref, group),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                        onPressed: () => _showDeleteGroupDialog(context, ref, group),
+                      ),
+                    ],
+                  ),
                   subtitle: Text('${group.memberCount} Students'),
                   children: [
                     ButtonBar(
@@ -93,36 +105,102 @@ class GroupManagementScreen extends ConsumerWidget {
   }
 
   void _showAddStudentDialog(BuildContext context, WidgetRef ref, int groupId) {
-    final emailCtrl = TextEditingController();
-    final nameCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
+    List<Map<String, dynamic>> searchResults = [];
+    List<Map<String, dynamic>> selectedUsers = [];
+    final searchCtrl = TextEditingController();
+    bool isSearching = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Manually Add Student'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Student Email')),
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Student Full Name')),
-            TextField(controller: passCtrl, decoration: const InputDecoration(labelText: 'Assign Password')),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add Existing Students'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (selectedUsers.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    children: selectedUsers.map((u) => Chip(
+                      label: Text(u['email'] ?? u['fullName'] ?? 'User'),
+                      onDeleted: () {
+                        setState(() => selectedUsers.remove(u));
+                      },
+                    )).toList(),
+                  ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: searchCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Search by Email or Name',
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: () async {
+                        if (searchCtrl.text.isEmpty) return;
+                        setState(() => isSearching = true);
+                        final res = await ref.read(creatorGroupsProvider.notifier).searchStudents(searchCtrl.text);
+                        setState(() {
+                          searchResults = res;
+                          isSearching = false;
+                        });
+                      },
+                    ),
+                  ),
+                  onSubmitted: (val) async {
+                    if (val.isEmpty) return;
+                    setState(() => isSearching = true);
+                    final res = await ref.read(creatorGroupsProvider.notifier).searchStudents(val);
+                    setState(() {
+                      searchResults = res;
+                      isSearching = false;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                if (isSearching) const Center(child: CircularProgressIndicator()),
+                if (!isSearching && searchResults.isNotEmpty)
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: searchResults.length,
+                      itemBuilder: (context, index) {
+                        final user = searchResults[index];
+                        final isSelected = selectedUsers.any((u) => u['id'] == user['id']);
+                        return CheckboxListTile(
+                          title: Text(user['fullName'] ?? 'Unknown'),
+                          subtitle: Text(user['email'] ?? ''),
+                          value: isSelected,
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                selectedUsers.add(user);
+                              } else {
+                                selectedUsers.removeWhere((u) => u['id'] == user['id']);
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: selectedUsers.isEmpty ? null : () async {
+                final ids = selectedUsers.map((u) => u['id'] as String).toList();
+                await ref.read(creatorGroupsProvider.notifier).addStudentsBulk(groupId, ids);
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Add Selected'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (emailCtrl.text.isNotEmpty && passCtrl.text.isNotEmpty) {
-                await ref.read(creatorGroupsProvider.notifier).addStudentToGroup(
-                  groupId, emailCtrl.text, nameCtrl.text, passCtrl.text
-                );
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
-            child: const Text('Create & Add'),
-          ),
-        ],
       ),
     );
   }
@@ -136,14 +214,13 @@ class GroupManagementScreen extends ConsumerWidget {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: const Text('Assign Course to Group'),
+            title: const Text('Assign Courses to Group'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: courseIdCtrl,
-                  decoration: const InputDecoration(labelText: 'Course ID'),
-                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Course IDs (comma separated)'),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
@@ -161,9 +238,13 @@ class GroupManagementScreen extends ConsumerWidget {
               ElevatedButton(
                 onPressed: () async {
                   if (courseIdCtrl.text.isNotEmpty) {
-                    final cid = int.tryParse(courseIdCtrl.text);
-                    if (cid != null) {
-                      await ref.read(creatorGroupsProvider.notifier).assignCourse(groupId, cid, isMandatory);
+                    final ids = courseIdCtrl.text.split(',')
+                        .map((s) => int.tryParse(s.trim()))
+                        .where((i) => i != null)
+                        .cast<int>()
+                        .toList();
+                    if (ids.isNotEmpty) {
+                      await ref.read(creatorGroupsProvider.notifier).assignCoursesBulk(groupId, ids, isMandatory);
                       if (context.mounted) Navigator.pop(context);
                     }
                   }
@@ -173,6 +254,53 @@ class GroupManagementScreen extends ConsumerWidget {
             ],
           );
         }
+      ),
+    );
+  }
+
+  void _showEditGroupDialog(BuildContext context, WidgetRef ref, CreatorGroup group) {
+    final nameCtrl = TextEditingController(text: group.name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Group'),
+        content: TextField(
+          controller: nameCtrl,
+          decoration: const InputDecoration(labelText: 'Group Name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameCtrl.text.isNotEmpty) {
+                await ref.read(creatorGroupsProvider.notifier).updateGroup(group.id, nameCtrl.text);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteGroupDialog(BuildContext context, WidgetRef ref, CreatorGroup group) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Group'),
+        content: Text('Are you sure you want to delete ${group.name}? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await ref.read(creatorGroupsProvider.notifier).deleteGroup(group.id);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }

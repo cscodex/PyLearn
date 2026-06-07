@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/course_provider.dart';
 
+import '../../../../core/presentation/widgets/global_settings_menu.dart';
+
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -18,7 +20,8 @@ class DashboardScreen extends ConsumerWidget {
           _buildGamificationBadge(Icons.local_fire_department, '5', Colors.orange),
           const SizedBox(width: 8),
           _buildGamificationBadge(Icons.star, '240 XP', Colors.amber),
-          const SizedBox(width: 16),
+          const GlobalSettingsMenu(),
+          const SizedBox(width: 8),
         ],
       ),
       body: RefreshIndicator(
@@ -141,46 +144,56 @@ class DashboardScreen extends ConsumerWidget {
               height: 140,
               color: theme.colorScheme.primaryContainer,
               child: course.thumbnailUrl != null
-                  ? Image.network(course.thumbnailUrl!, fit: BoxFit.cover)
+                  ? Image.network(
+                      course.thumbnailUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 64, color: Colors.white54),
+                    )
                   : const Icon(Icons.code, size: 64, color: Colors.white54),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        course.difficultyLevel.toUpperCase(),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          course.difficultyLevel.toUpperCase(),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      course.title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (course.description != null) ...[
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: Text(
+                          course.description!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    course.title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (course.description != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      course.description!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
                   ],
-                ],
+                ),
               ),
             ),
           ],

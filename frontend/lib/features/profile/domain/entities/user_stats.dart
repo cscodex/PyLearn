@@ -1,5 +1,5 @@
 class UserStats {
-  final int id;
+  final String id;
   final String fullName;
   final String email;
   final int xp;
@@ -17,12 +17,12 @@ class UserStats {
 
   factory UserStats.fromJson(Map<String, dynamic> json) {
     return UserStats(
-      id: json['id'],
-      fullName: json['full_name'],
-      email: json['email'],
+      id: json['id']?.toString() ?? '',
+      fullName: json['fullName'] ?? json['full_name'] ?? '',
+      email: json['email'] ?? '',
       xp: json['xp'],
-      streakDays: json['streak_days'],
-      profilePictureUrl: json['profile_picture_url'],
+      streakDays: json['streakDays'] ?? json['streak_days'],
+      profilePictureUrl: json['profilePictureUrl'] ?? json['profile_picture_url'],
     );
   }
 }

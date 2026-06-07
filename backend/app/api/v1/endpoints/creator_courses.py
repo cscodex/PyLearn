@@ -32,7 +32,18 @@ async def create_course(
     db.add(course)
     await db.commit()
     await db.refresh(course)
-    return course
+    return {
+        "id": course.id,
+        "title": course.title,
+        "slug": course.slug,
+        "description": course.description,
+        "thumbnail_url": course.thumbnail_url,
+        "difficulty_level": course.difficulty,
+        "is_published": course.is_published,
+        "created_at": course.created_at,
+        "updated_at": course.updated_at,
+        "modules": []
+    }
 
 @router.post("/courses/{course_id}/modules", response_model=ModuleResponse)
 async def create_module(
@@ -57,7 +68,14 @@ async def create_module(
     db.add(module)
     await db.commit()
     await db.refresh(module)
-    return module
+    return {
+        "id": module.id,
+        "course_id": module.course_id,
+        "title": module.title,
+        "description": module.description,
+        "order_index": module.order_index,
+        "chapters": []
+    }
 
 @router.post("/modules/{module_id}/chapters", response_model=ChapterResponse)
 async def create_chapter(
@@ -77,7 +95,14 @@ async def create_chapter(
     db.add(chapter)
     await db.commit()
     await db.refresh(chapter)
-    return chapter
+    return {
+        "id": chapter.id,
+        "module_id": chapter.module_id,
+        "title": chapter.title,
+        "description": chapter.description,
+        "order_index": chapter.order_index,
+        "lessons": []
+    }
 
 @router.post("/chapters/{chapter_id}/lessons", response_model=LessonResponse)
 async def create_lesson(
@@ -101,7 +126,17 @@ async def create_lesson(
     db.add(lesson)
     await db.commit()
     await db.refresh(lesson)
-    return lesson
+    return {
+        "id": lesson.id,
+        "chapter_id": lesson.chapter_id,
+        "title": lesson.title,
+        "content_type": lesson.content_type,
+        "content_body": lesson.content_body,
+        "video_url": lesson.video_url,
+        "duration_minutes": lesson.duration_minutes,
+        "order_index": lesson.order_index,
+        "is_premium": not lesson.is_free_preview
+    }
 
 @router.post("/lessons/{lesson_id}/questions", response_model=QuestionResponse)
 async def create_question(
@@ -126,6 +161,7 @@ async def create_question(
     await db.commit()
     await db.refresh(question)
     
+    options_data = []
     for opt_in in question_in.options:
         opt = QuestionOption(
             question_id=question.id,
@@ -134,10 +170,33 @@ async def create_question(
             order_index=opt_in.order_index
         )
         db.add(opt)
+        options_data.append(opt)
     
     await db.commit()
     await db.refresh(question)
-    return question
+    for opt in options_data:
+        await db.refresh(opt)
+        
+    return {
+        "id": question.id,
+        "lesson_id": question.lesson_id,
+        "question_type": question.question_type,
+        "question_text": question.question_text,
+        "question_data": question.question_data,
+        "explanation": question.explanation,
+        "difficulty": question.difficulty,
+        "points": question.points,
+        "order_index": question.order_index,
+        "options": [
+            {
+                "id": opt.id,
+                "question_id": opt.question_id,
+                "option_text": opt.option_text,
+                "is_correct": opt.is_correct,
+                "order_index": opt.order_index
+            } for opt in options_data
+        ]
+    }
 
 @router.post("/lessons/{lesson_id}/challenges", response_model=CodingChallengeResponse)
 async def create_coding_challenge(
@@ -165,6 +224,7 @@ async def create_coding_challenge(
     await db.commit()
     await db.refresh(challenge)
     
+    test_cases_data = []
     for tc_in in challenge_in.test_cases:
         tc = TestCase(
             challenge_id=challenge.id,
@@ -175,7 +235,72 @@ async def create_coding_challenge(
             order_index=tc_in.order_index
         )
         db.add(tc)
+        test_cases_data.append(tc)
         
     await db.commit()
-    await db.refresh(challenge)
-    return challenge
+    for tc in test_cases_data:
+        await db.refresh(tc)
+        
+    return {
+        "id": challenge.id,
+        "lesson_id": challenge.lesson_id,
+        "title": challenge.title,
+        "description": challenge.description,
+        "difficulty": challenge.difficulty,
+        "starter_code": challenge.starter_code,
+        "solution_code": challenge.solution_code,
+        "hints": challenge.hints,
+        "xp_reward": challenge.xp_reward,
+        "time_limit_seconds": challenge.time_limit_seconds,
+        "memory_limit_mb": challenge.memory_limit_mb,
+        "order_index": challenge.order_index,
+        "test_cases": [
+            {
+                "id": tc.id,
+                "challenge_id": tc.challenge_id,
+                "input_data": tc.input_data,
+                "expected_output": tc.expected_output,
+                "is_hidden": tc.is_hidden,
+                "points": tc.points,
+                "order_index": tc.order_index
+            } for tc in test_cases_data
+        ]
+    }
+
+from app.models.progress import Enrollment
+from app.schemas.course import AdminEnrollmentResponse
+
+@router.get("/enrollments", response_model=List[AdminEnrollmentResponse])
+async def list_creator_enrollments(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    """
+    Retrieve all enrollments for courses created by the current creator.
+    """
+    result = await db.execute(
+        select(Enrollment, User.full_name, Course.title)
+        .join(User, User.id == Enrollment.user_id)
+        .join(Course, Course.id == Enrollment.course_id)
+        .filter(Course.instructor_id == current_user.id)
+        .offset(skip).limit(limit)
+    )
+    
+    rows = result.all()
+    response = []
+    for row in rows:
+        enrollment, user_name, course_title = row
+        response.append(AdminEnrollmentResponse(
+            id=enrollment.id,
+            user_id=enrollment.user_id,
+            user_name=user_name,
+            course_id=enrollment.course_id,
+            course_title=course_title,
+            enrolled_at=enrollment.enrolled_at,
+            status=enrollment.status,
+            progress_percentage=float(enrollment.progress_percentage)
+        ))
+        
+    return response

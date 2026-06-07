@@ -1,5 +1,5 @@
 class LeaderboardUser {
-  final int id;
+  final String id;
   final String fullName;
   final int xp;
   final String? profilePictureUrl;
@@ -15,10 +15,10 @@ class LeaderboardUser {
 
   factory LeaderboardUser.fromJson(Map<String, dynamic> json) {
     return LeaderboardUser(
-      id: json['id'],
-      fullName: json['full_name'],
+      id: json['id']?.toString() ?? '',
+      fullName: json['fullName'] ?? json['full_name'] ?? 'User',
       xp: json['xp'],
-      profilePictureUrl: json['profile_picture_url'],
+      profilePictureUrl: json['profilePictureUrl'] ?? json['profile_picture_url'],
       rank: json['rank'],
     );
   }
@@ -36,7 +36,7 @@ class LeaderboardResponse {
   factory LeaderboardResponse.fromJson(Map<String, dynamic> json) {
     return LeaderboardResponse(
       users: (json['users'] as List).map((e) => LeaderboardUser.fromJson(e)).toList(),
-      currentUserRank: json['current_user_rank'],
+      currentUserRank: json['currentUserRank'] ?? json['current_user_rank'],
     );
   }
 }

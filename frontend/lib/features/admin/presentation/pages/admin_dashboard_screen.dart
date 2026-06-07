@@ -2,20 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/admin_users_provider.dart';
 
+import '../../../../core/presentation/widgets/global_settings_menu.dart';
+
+import '../pages/enrollment_tracking_screen.dart';
+
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin Dashboard'),
           centerTitle: true,
+          actions: const [
+            GlobalSettingsMenu(),
+            SizedBox(width: 8),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.people), text: 'Users'),
+              Tab(icon: Icon(Icons.analytics), text: 'Enrollments'),
               Tab(icon: Icon(Icons.phone_iphone), text: 'iOS Deploy'),
             ],
           ),
@@ -23,6 +32,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         body: TabBarView(
           children: [
             _buildUserManagement(context, ref),
+            const EnrollmentTrackingScreen(),
             _buildIosGuide(context),
           ],
         ),
@@ -52,16 +62,42 @@ class AdminDashboardScreen extends ConsumerWidget {
               ),
               title: Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('${user.email} • Role: ${user.role}'),
-              trailing: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: user.isActive ? Colors.red.shade50 : Colors.green.shade50,
-                  foregroundColor: user.isActive ? Colors.red : Colors.green,
-                  elevation: 0,
-                ),
-                onPressed: user.role == 'admin' ? null : () {
-                  ref.read(adminUsersProvider.notifier).toggleBlockStatus(user.id, user.isActive);
+              trailing: user.role == 'admin' ? null : PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'block') {
+                    ref.read(adminUsersProvider.notifier).toggleBlockStatus(user.id, user.isActive);
+                  } else if (value == 'delete') {
+                    _showDeleteDialog(context, ref, user);
+                  } else if (value == 'edit') {
+                    _showEditDialog(context, ref, user);
+                  }
                 },
-                child: Text(user.isActive ? 'Block' : 'Unblock'),
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: Icon(Icons.edit, size: 20),
+                      title: Text('Edit'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'block',
+                    child: ListTile(
+                      leading: Icon(user.isActive ? Icons.block : Icons.check_circle_outline, size: 20),
+                      title: Text(user.isActive ? 'Block' : 'Unblock'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete, color: Colors.red, size: 20),
+                      title: Text('Delete', style: TextStyle(color: Colors.red)),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -200,6 +236,91 @@ flutter run -d <your-iphone-name> --dart-define=API_URL=https://pythontutor-api.
           ),
         ),
       ],
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context, WidgetRef ref, AdminUser user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete User'),
+        content: Text('Are you sure you want to delete ${user.fullName}? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              ref.read(adminUsersProvider.notifier).deleteUser(user.id);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, WidgetRef ref, AdminUser user) {
+    final nameController = TextEditingController(text: user.fullName);
+    final emailController = TextEditingController(text: user.email);
+    String selectedRole = user.role;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit User'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Full Name'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(labelText: 'Email'),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                decoration: const InputDecoration(labelText: 'Role'),
+                items: const [
+                  DropdownMenuItem(value: 'student', child: Text('Student')),
+                  DropdownMenuItem(value: 'creator', child: Text('Creator')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => selectedRole = value);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                ref.read(adminUsersProvider.notifier).updateUser(
+                  user.id,
+                  emailController.text,
+                  nameController.text,
+                  selectedRole,
+                );
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

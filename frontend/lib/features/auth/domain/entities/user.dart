@@ -13,12 +13,13 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] ?? '',
+      id: json['id']?.toString() ?? '',
       email: json['email'] ?? '',
-      fullName: json['full_name'] ?? '',
+      fullName: json['fullName'] ?? json['full_name'] ?? '',
       role: json['role'] ?? 'student',
     );
   }
 
   bool get isAdmin => role == 'admin';
+  bool get isCreator => role == 'creator' || role == 'admin';
 }
