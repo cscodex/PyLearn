@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/profile_provider.dart';
@@ -265,7 +266,13 @@ void _showEditProfileDialog(BuildContext context, WidgetRef ref, String currentN
               }
             } catch (e) {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                String errorMessage = 'Failed to update password';
+                if (e is DioException) {
+                  errorMessage = e.response?.data['detail'] ?? e.message ?? errorMessage;
+                } else {
+                  errorMessage = e.toString();
+                }
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
               }
             }
           },
@@ -312,7 +319,13 @@ void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
               }
             } catch (e) {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                String errorMessage = 'Failed to update password';
+                if (e is DioException) {
+                  errorMessage = e.response?.data['detail'] ?? e.message ?? errorMessage;
+                } else {
+                  errorMessage = e.toString();
+                }
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMessage)));
               }
             }
           },

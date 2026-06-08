@@ -47,3 +47,17 @@ class AdminUserCreate(CamelCaseBaseModel):
     full_name: str
     password: str
     role: str
+
+class UserAchievementResponse(CamelCaseBaseModel):
+    id: str
+    title: str
+    description: str
+    icon_url: Optional[str]
+    unlocked_at: str
+
+class UserHistoryResponse(CamelCaseBaseModel):
+    course_id: int
+    course_title: str
+    progress_percentage: float
+    last_accessed_at: Optional[str] = None
+    completed_at: Optional[str] = None

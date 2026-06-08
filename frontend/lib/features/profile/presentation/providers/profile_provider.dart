@@ -7,7 +7,19 @@ class ProfileNotifier extends AsyncNotifier<UserStats> {
   Future<UserStats> build() async {
     final dio = ref.watch(dioProvider);
     final response = await dio.get('/users/me/stats');
-    return UserStats.fromJson(response.data);
+    Map<String, dynamic> data = Map<String, dynamic>.from(response.data);
+    
+    try {
+      final achievementsRes = await dio.get('/users/me/achievements');
+      data['achievements'] = achievementsRes.data;
+    } catch (_) {}
+
+    try {
+      final historyRes = await dio.get('/users/me/history');
+      data['history'] = historyRes.data;
+    } catch (_) {}
+
+    return UserStats.fromJson(data);
   }
 
   Future<void> updateProfile(String fullName, String email) async {

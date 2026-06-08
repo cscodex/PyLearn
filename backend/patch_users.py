@@ -1,4 +1,9 @@
-from fastapi import APIRouter, Depends
+import re
+
+with open("app/api/v1/endpoints/users.py", "r") as f:
+    content = f.read()
+
+new_imports = """from fastapi import APIRouter, Depends
 from typing import Any, List
 
 from app.api import deps
@@ -7,29 +12,21 @@ from app.models.course import Course
 from app.models.progress import Enrollment
 from app.schemas.user import UserStatsResponse, UserAchievementResponse, UserHistoryResponse
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession"""
 
-router = APIRouter()
+content = content.replace("""from fastapi import APIRouter, Depends
+from typing import Any
 
-@router.get("/me/stats", response_model=UserStatsResponse)
-async def get_my_stats(
-    current_user: User = Depends(deps.get_current_active_user)
-) -> Any:
-    """Get the current user's profile and progress stats."""
-    return UserStatsResponse(
-        id=current_user.id,
-        full_name=current_user.full_name,
-        email=current_user.email,
-        xp=current_user.xp,
-        streak_days=current_user.streak_days,
-        profile_picture_url=current_user.profile_picture_url
-    )
+from app.api import deps
+from app.models.user import User
+from app.schemas.user import UserStatsResponse""", new_imports)
 
+new_endpoints = """
 @router.get("/me/achievements", response_model=List[UserAchievementResponse])
 async def get_my_achievements(
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
-    """Get the current user's achievements and badges."""
+    \"\"\"Get the current user's achievements and badges.\"\"\"
     # Dummy data for now
     return [
         UserAchievementResponse(
@@ -53,7 +50,7 @@ async def get_my_history(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
-    """Get the current user's learning history."""
+    \"\"\"Get the current user's learning history.\"\"\"
     enrollments_res = await db.execute(
         select(Enrollment, Course.title)
         .join(Course, Course.id == Enrollment.course_id)
@@ -73,3 +70,10 @@ async def get_my_history(
             completed_at=enrollment.completed_at.isoformat() if enrollment.completed_at else None
         ))
     return history
+"""
+
+content = content + new_endpoints
+
+with open("app/api/v1/endpoints/users.py", "w") as f:
+    f.write(content)
+

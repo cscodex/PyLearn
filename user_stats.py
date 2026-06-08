@@ -1,4 +1,9 @@
-class UserAchievement {
+import re
+
+with open("frontend/lib/features/profile/domain/entities/user_stats.dart", "r") as f:
+    content = f.read()
+
+new_content = """class UserAchievement {
   final String id;
   final String title;
   final String description;
@@ -70,3 +75,7 @@ class UserStats {
     );
   }
 }
+"""
+
+with open("frontend/lib/features/profile/domain/entities/user_stats.dart", "w") as f:
+    f.write(new_content)
