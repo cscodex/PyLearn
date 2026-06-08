@@ -1,30 +1,14 @@
-import '../providers/creator_courses_provider.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import re
 
-import '../../../../core/presentation/widgets/global_settings_menu.dart';
+with open('lib/features/creator/presentation/pages/creator_dashboard_screen.dart', 'r') as f:
+    content = f.read()
 
-class CreatorDashboardScreen extends ConsumerWidget {
-  const CreatorDashboardScreen({super.key});
+# Add import for provider
+if "creator_courses_provider.dart" not in content:
+    content = "import '../providers/creator_courses_provider.dart';\n" + content
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
-    final role = authState.user?.role ?? 'student';
-    final isAdmin = role == 'admin';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Creator Studio'),
-        centerTitle: false,
-        actions: [
-          const GlobalSettingsMenu(),
-          const SizedBox(width: 8),
-        ],
-      ),
-      
+# Replace the body with a more dynamic UI that lists courses
+replacement = """
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -52,12 +36,11 @@ class CreatorDashboardScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      if (!isAdmin)
-                        FilledButton.icon(
-                          onPressed: () => context.push('/creator/course/new'),
-                          icon: const Icon(Icons.add),
-                          label: const Text('New Course'),
-                        ),
+                      FilledButton.icon(
+                        onPressed: () => context.push('/creator/course/new'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('New Course'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -100,7 +83,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
                       child: Center(
                         child: Padding(
                           padding: EdgeInsets.all(32.0),
-                          child: Text('You haven\'t created any courses yet.'),
+                          child: Text('You haven\\'t created any courses yet.'),
                         ),
                       ),
                     );
@@ -124,17 +107,15 @@ class CreatorDashboardScreen extends ConsumerWidget {
                                 child: Icon(Icons.book, color: Theme.of(context).colorScheme.primary),
                               ),
                               title: Text(course.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(course.difficultyLevel.toUpperCase()),
-                                  if (course.instructorName != null && role == 'admin')
-                                    Text('By ${course.instructorName}', style: const TextStyle(color: Colors.grey)),
-                                ],
+                              subtitle: Text(
+                                '${course.difficultyLevel.toUpperCase()} • ${course.isPublished ? "Published" : "Draft"}',
                               ),
-                              trailing: role == 'admin' ? const Icon(Icons.visibility) : const Icon(Icons.edit),
+                              trailing: const Icon(Icons.chevron_right),
                               onTap: () {
-                                context.push('/creator/course/${course.id}/edit');
+                                // For now we can open the details screen or the builder
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Course editing coming soon!')),
+                                );
                               },
                             ),
                           );
@@ -152,8 +133,11 @@ class CreatorDashboardScreen extends ConsumerWidget {
           const SliverPadding(padding: EdgeInsets.only(bottom: 32)),
         ],
       ),
+"""
 
+content = re.sub(r'body: Center\(.*?\),', replacement, content, flags=re.DOTALL)
 
-    );
-  }
-}
+with open('lib/features/creator/presentation/pages/creator_dashboard_screen.dart', 'w') as f:
+    f.write(content)
+
+print("Patched creator_dashboard_screen.dart")

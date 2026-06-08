@@ -10,7 +10,7 @@ from app.api import deps
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token
 from app.models.user import User, UserProfile, RefreshToken
 from app.core.config import settings
-from app.schemas.auth import Token, UserResponse, UserCreate, RefreshTokenRequest
+from app.schemas.auth import Token, UserResponse, UserCreate, RefreshTokenRequest, UserUpdate, PasswordUpdate
 
 router = APIRouter()
 
@@ -131,3 +131,39 @@ async def google_auth(
     """Google OAuth2 endpoint (To be implemented with google-auth library)"""
     # TODO: Implement google token verification and auto-registration
     raise HTTPException(status_code=501, detail="Not implemented yet")
+
+@router.put("/profile", response_model=UserResponse)
+async def update_profile(
+    user_in: UserUpdate,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Update current user profile."""
+    if user_in.full_name:
+        current_user.full_name = user_in.full_name
+    if user_in.email:
+        # Check if email is already taken
+        res = await db.execute(select(User).filter(User.email == user_in.email, User.id != current_user.id))
+        if res.scalars().first():
+            raise HTTPException(status_code=400, detail="Email already taken")
+        current_user.email = user_in.email
+        
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+@router.put("/password")
+async def update_password(
+    password_in: PasswordUpdate,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Update current user password."""
+    if not verify_password(password_in.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+        
+    current_user.password_hash = get_password_hash(password_in.new_password)
+    db.add(current_user)
+    await db.commit()
+    return {"message": "Password updated successfully"}

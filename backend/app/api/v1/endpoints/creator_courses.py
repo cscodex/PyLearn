@@ -23,12 +23,29 @@ async def list_creator_courses(
     """
     Retrieve courses. Admins see all, creators see their own.
     """
-    query = select(Course)
+    query = select(Course, User.full_name).outerjoin(User, User.id == Course.instructor_id)
     if current_user.role != "admin":
         query = query.filter(Course.instructor_id == current_user.id)
     
     result = await db.execute(query.offset(skip).limit(limit))
-    return result.scalars().all()
+    
+    courses = []
+    for row in result.all():
+        course, instructor_name = row
+        course_dict = {
+            "id": course.id,
+            "title": course.title,
+            "slug": course.slug,
+            "description": course.description,
+            "thumbnail_url": course.thumbnail_url,
+            "difficulty_level": course.difficulty,
+            "is_published": course.is_published,
+            "created_at": course.created_at,
+            "updated_at": course.updated_at,
+            "instructor_name": instructor_name
+        }
+        courses.append(course_dict)
+    return courses
 
 @router.post("/courses", response_model=CourseResponse)
 async def create_course(
@@ -317,7 +334,7 @@ async def list_creator_enrollments(
             course_id=enrollment.course_id,
             course_title=course_title,
             enrolled_at=enrollment.enrolled_at,
-            status=enrollment.status,
+            status="completed" if enrollment.completed_at else "active",
             progress_percentage=float(enrollment.progress_percentage)
         ))
         

@@ -14,6 +14,7 @@ abstract class Course with _$Course {
     required String difficultyLevel,
     required bool isPublished,
     int? instructorId,
+    String? instructorName,
     @Default([]) List<Module> modules,
     @Default(0.0) double progressPercentage,
     @Default([]) List<int> completedLessonIds,

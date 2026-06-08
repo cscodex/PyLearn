@@ -15,6 +15,7 @@ _Course _$CourseFromJson(Map<String, dynamic> json) => _Course(
   difficultyLevel: json['difficultyLevel'] as String,
   isPublished: json['isPublished'] as bool,
   instructorId: (json['instructorId'] as num?)?.toInt(),
+  instructorName: json['instructorName'] as String?,
   modules:
       (json['modules'] as List<dynamic>?)
           ?.map((e) => Module.fromJson(e as Map<String, dynamic>))
@@ -37,6 +38,7 @@ Map<String, dynamic> _$CourseToJson(_Course instance) => <String, dynamic>{
   'difficultyLevel': instance.difficultyLevel,
   'isPublished': instance.isPublished,
   'instructorId': instance.instructorId,
+  'instructorName': instance.instructorName,
   'modules': instance.modules,
   'progressPercentage': instance.progressPercentage,
   'completedLessonIds': instance.completedLessonIds,

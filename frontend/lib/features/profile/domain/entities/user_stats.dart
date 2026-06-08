@@ -20,8 +20,8 @@ class UserStats {
       id: json['id']?.toString() ?? '',
       fullName: json['fullName'] ?? json['full_name'] ?? '',
       email: json['email'] ?? '',
-      xp: json['xp'],
-      streakDays: json['streakDays'] ?? json['streak_days'],
+      xp: (json['xp'] as num?)?.toInt() ?? 0,
+      streakDays: (json['streakDays'] as num?)?.toInt() ?? (json['streak_days'] as num?)?.toInt() ?? 0,
       profilePictureUrl: json['profilePictureUrl'] ?? json['profile_picture_url'],
     );
   }

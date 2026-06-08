@@ -39,3 +39,11 @@ class UserResponse(CamelCaseBaseModel):
 
 class RefreshTokenRequest(CamelCaseBaseModel):
     refresh_token: str
+
+class UserUpdate(CamelCaseBaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+class PasswordUpdate(CamelCaseBaseModel):
+    current_password: str
+    new_password: str

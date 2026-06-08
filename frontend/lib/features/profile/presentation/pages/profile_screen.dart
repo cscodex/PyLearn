@@ -156,6 +156,23 @@ class ProfileScreen extends ConsumerWidget {
                     },
                   ),
                 ],
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.edit),
+                  title: const Text('Edit Profile'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    _showEditProfileDialog(context, ref, user.fullName, user.email);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.password),
+                  title: const Text('Change Password'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    _showChangePasswordDialog(context, ref);
+                  },
+                ),
               ],
             ),
           );
@@ -212,4 +229,96 @@ class _StatCard extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showEditProfileDialog(BuildContext context, WidgetRef ref, String currentName, String currentEmail) {
+  final nameCtrl = TextEditingController(text: currentName);
+  final emailCtrl = TextEditingController(text: currentEmail);
+  
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Edit Profile'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: nameCtrl,
+            decoration: const InputDecoration(labelText: 'Full Name'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: emailCtrl,
+            decoration: const InputDecoration(labelText: 'Email'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await ref.read(profileProvider.notifier).updateProfile(nameCtrl.text, emailCtrl.text);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated successfully')));
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
+  final oldPassCtrl = TextEditingController();
+  final newPassCtrl = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Change Password'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: oldPassCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Current Password'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: newPassCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'New Password'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await ref.read(profileProvider.notifier).updatePassword(oldPassCtrl.text, newPassCtrl.text);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated successfully')));
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            }
+          },
+          child: const Text('Update'),
+        ),
+      ],
+    ),
+  );
 }

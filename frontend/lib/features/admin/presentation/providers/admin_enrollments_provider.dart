@@ -25,14 +25,14 @@ class AdminEnrollment {
 
   factory AdminEnrollment.fromJson(Map<String, dynamic> json) {
     return AdminEnrollment(
-      id: json['id'],
-      userId: json['userId'] ?? json['user_id'],
-      userName: json['userName'] ?? json['user_name'],
-      courseId: json['courseId'] ?? json['course_id'],
-      courseTitle: json['courseTitle'] ?? json['course_title'],
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      userId: json['userId'] ?? json['user_id'] ?? '',
+      userName: json['userName'] ?? json['user_name'] ?? 'Unknown User',
+      courseId: (json['courseId'] ?? json['course_id'] as num?)?.toInt() ?? 0,
+      courseTitle: json['courseTitle'] ?? json['course_title'] ?? 'Unknown Course',
       enrolledAt: json['enrolledAt'] ?? json['enrolled_at'] ?? '',
-      status: json['status'],
-      progressPercentage: json['progressPercentage'] ?? json['progress_percentage']?.toDouble() ?? 0.0,
+      status: json['status'] ?? 'unknown',
+      progressPercentage: (json['progressPercentage'] as num?)?.toDouble() ?? (json['progress_percentage'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

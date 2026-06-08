@@ -6,6 +6,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../providers/creator_courses_provider.dart';
 import '../../../course/domain/entities/course.dart';
 import '../../../../core/widgets/loading_overlay.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class CourseEditorScreen extends ConsumerStatefulWidget {
   final int courseId;
@@ -22,6 +23,9 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     final isLoading = state.isLoading;
     final courseList = state.value ?? [];
     final course = courseList.where((c) => c.id == widget.courseId).firstOrNull;
+    final authState = ref.watch(authProvider);
+    final role = authState.user?.role ?? 'student';
+    final isAdmin = role == 'admin';
 
     if (course == null && !isLoading) {
       return Scaffold(
@@ -46,7 +50,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                 label: const Text('Preview Course', style: TextStyle(color: Colors.white)),
               ),
             const SizedBox(width: 8),
-            if (course != null)
+            if (course != null && !isAdmin)
               Switch(
                 value: course.isPublished,
                 onChanged: (val) async {
@@ -66,8 +70,8 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             const SizedBox(width: 16),
           ],
         ),
-        body: course == null ? const SizedBox() : _buildCourseHierarchy(course),
-        floatingActionButton: FloatingActionButton.extended(
+        body: course == null ? const SizedBox() : _buildCourseHierarchy(course, isAdmin),
+        floatingActionButton: isAdmin ? null : FloatingActionButton.extended(
           onPressed: () => _showAddModuleDialog(),
           icon: const Icon(Icons.add),
           label: const Text('Add Module'),
@@ -76,7 +80,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     );
   }
 
-  Widget _buildCourseHierarchy(Course course) {
+  Widget _buildCourseHierarchy(Course course, bool isAdmin) {
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -87,7 +91,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           child: ListTile(
             title: Text(course.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
             subtitle: Text(course.description ?? 'No description'),
-            trailing: IconButton(
+            trailing: isAdmin ? null : IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () => _showEditCourseDialog(course),
             ),
@@ -95,13 +99,13 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
         ),
         const SizedBox(height: 16),
         // Modules
-        ...course.modules.map((module) => _buildModuleCard(module)).toList(),
+        ...course.modules.map((module) => _buildModuleCard(module, isAdmin)).toList(),
         const SizedBox(height: 80), // Padding for FAB
       ],
     );
   }
 
-  Widget _buildModuleCard(Module module) {
+  Widget _buildModuleCard(Module module, bool isAdmin) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
@@ -109,7 +113,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
         title: Text('Module: ${module.title}', style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(module.description ?? ''),
         leading: const Icon(Icons.folder),
-        trailing: Row(
+        trailing: isAdmin ? null : Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
@@ -127,12 +131,12 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ),
           ],
         ),
-        children: module.chapters.map((chapter) => _buildChapterTile(chapter)).toList(),
+        children: module.chapters.map((chapter) => _buildChapterTile(chapter, isAdmin)).toList(),
       ),
     );
   }
 
-  Widget _buildChapterTile(Chapter chapter) {
+  Widget _buildChapterTile(Chapter chapter, bool isAdmin) {
     return Container(
       color: Colors.grey.withOpacity(0.05),
       child: ExpansionTile(
@@ -142,7 +146,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           padding: EdgeInsets.only(left: 16.0),
           child: Icon(Icons.menu_book),
         ),
-        trailing: Row(
+        trailing: isAdmin ? null : Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
@@ -160,12 +164,12 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ),
           ],
         ),
-        children: chapter.lessons.map((lesson) => _buildLessonTile(lesson)).toList(),
+        children: chapter.lessons.map((lesson) => _buildLessonTile(lesson, isAdmin)).toList(),
       ),
     );
   }
 
-  Widget _buildLessonTile(Lesson lesson) {
+  Widget _buildLessonTile(Lesson lesson, bool isAdmin) {
     IconData icon;
     switch (lesson.contentType) {
       case 'video': icon = Icons.play_circle; break;
@@ -179,7 +183,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
       leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
       title: Text(lesson.title),
       subtitle: Text(lesson.contentType.toUpperCase()),
-      trailing: Row(
+      trailing: isAdmin ? null : Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(

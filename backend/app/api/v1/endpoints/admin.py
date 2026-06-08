@@ -234,7 +234,7 @@ async def list_all_enrollments(
             course_id=enrollment.course_id,
             course_title=course_title,
             enrolled_at=enrollment.enrolled_at,
-            status=enrollment.status,
+            status="completed" if enrollment.completed_at else "active",
             progress_percentage=float(enrollment.progress_percentage)
         ))
         

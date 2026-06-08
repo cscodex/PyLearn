@@ -93,12 +93,14 @@ class CourseUpdate(CamelCaseBaseModel):
 
 class CourseResponse(CourseBase):
     id: int
+    instructor_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     modules: List[ModuleResponse] = []
 
 class CourseListResponse(CourseBase):
     id: int
+    instructor_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
