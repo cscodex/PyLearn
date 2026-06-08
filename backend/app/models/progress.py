@@ -12,6 +12,7 @@ class Enrollment(Base):
     enrolled_at = Column(DateTime(timezone=True), server_default=func.now())
     last_accessed_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    progress_percentage = Column(Integer, default=0)
     
     course = relationship("Course", back_populates="enrollments")
 

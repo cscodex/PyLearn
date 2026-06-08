@@ -2,6 +2,7 @@ import '../providers/creator_courses_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../course/domain/entities/course.dart';
 
 import '../../../../core/presentation/widgets/global_settings_menu.dart';
 
@@ -123,8 +124,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
                               ),
                               trailing: const Icon(Icons.chevron_right),
                               onTap: () {
-                                // For now we can open the details screen or the builder
-                                  _showEditCourseDialog(context, ref, course);
+                                context.push('/creator/course/${course.id}/edit');
                               },
                             ),
                           );
@@ -147,83 +147,5 @@ class CreatorDashboardScreen extends ConsumerWidget {
     );
   }
 
-  void _showEditCourseDialog(BuildContext context, WidgetRef ref, Map<String, dynamic> course) {
-    final titleCtrl = TextEditingController(text: course['title']);
-    final descCtrl = TextEditingController(text: course['description']);
-    String difficulty = course['difficulty_level'] ?? 'beginner';
-    bool isPublished = course['is_published'] ?? false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return AlertDialog(
-              title: const Text('Edit Course'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: titleCtrl,
-                      decoration: const InputDecoration(labelText: 'Title'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: descCtrl,
-                      decoration: const InputDecoration(labelText: 'Description'),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: difficulty,
-                      decoration: const InputDecoration(labelText: 'Difficulty'),
-                      items: const [
-                        DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
-                        DropdownMenuItem(value: 'intermediate', child: Text('Intermediate')),
-                        DropdownMenuItem(value: 'advanced', child: Text('Advanced')),
-                      ],
-                      onChanged: (val) => setDialogState(() => difficulty = val!),
-                    ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      title: const Text('Published'),
-                      value: isPublished,
-                      onChanged: (val) => setDialogState(() => isPublished = val),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    final success = await ref.read(creatorCoursesProvider.notifier).updateCourse(
-                      course['id'],
-                      {
-                        "title": titleCtrl.text,
-                        "slug": course['slug'] ?? titleCtrl.text.toLowerCase().replaceAll(' ', '-'),
-                        "description": descCtrl.text,
-                        "difficulty_level": difficulty,
-                        "is_published": isPublished,
-                        "thumbnail_url": course['thumbnail_url'] ?? "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=600&auto=format&fit=crop",
-                      },
-                    );
-                    if (success && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Course updated successfully!')));
-                    }
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
   }
 }

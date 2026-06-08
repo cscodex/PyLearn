@@ -13,9 +13,17 @@ _Course _$CourseFromJson(Map<String, dynamic> json) => _Course(
   description: json['description'] as String?,
   thumbnailUrl: json['thumbnailUrl'] as String?,
   difficultyLevel: json['difficultyLevel'] as String,
+  isPublished: json['isPublished'] as bool,
+  instructorId: (json['instructorId'] as num?)?.toInt(),
   modules:
       (json['modules'] as List<dynamic>?)
           ?.map((e) => Module.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const [],
+  progressPercentage: (json['progressPercentage'] as num?)?.toDouble() ?? 0.0,
+  completedLessonIds:
+      (json['completedLessonIds'] as List<dynamic>?)
+          ?.map((e) => (e as num).toInt())
           .toList() ??
       const [],
 );
@@ -27,7 +35,11 @@ Map<String, dynamic> _$CourseToJson(_Course instance) => <String, dynamic>{
   'description': instance.description,
   'thumbnailUrl': instance.thumbnailUrl,
   'difficultyLevel': instance.difficultyLevel,
+  'isPublished': instance.isPublished,
+  'instructorId': instance.instructorId,
   'modules': instance.modules,
+  'progressPercentage': instance.progressPercentage,
+  'completedLessonIds': instance.completedLessonIds,
 };
 
 _Module _$ModuleFromJson(Map<String, dynamic> json) => _Module(
@@ -77,6 +89,7 @@ _Lesson _$LessonFromJson(Map<String, dynamic> json) => _Lesson(
   videoUrl: json['videoUrl'] as String?,
   durationMinutes: (json['durationMinutes'] as num?)?.toInt(),
   orderIndex: (json['orderIndex'] as num).toInt(),
+  contentBody: json['contentBody'] as Map<String, dynamic>?,
   isPremium: json['isPremium'] as bool? ?? false,
 );
 
@@ -87,5 +100,6 @@ Map<String, dynamic> _$LessonToJson(_Lesson instance) => <String, dynamic>{
   'videoUrl': instance.videoUrl,
   'durationMinutes': instance.durationMinutes,
   'orderIndex': instance.orderIndex,
+  'contentBody': instance.contentBody,
   'isPremium': instance.isPremium,
 };

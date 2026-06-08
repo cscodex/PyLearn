@@ -50,16 +50,17 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
 
   Future<bool> updateCourse(int id, Map<String, dynamic> data) async {
     try {
-      state = state.copyWith(isLoading: true, error: null);
+      final currentList = state.value ?? [];
+      state = const AsyncValue.loading();
       final response = await ref.read(dioProvider).put('/creator/courses/$id', data: data);
       
       // Update the local list
-      final updatedCourse = response.data;
-      final updatedList = state.courses.map((c) => c['id'] == id ? updatedCourse : c).toList();
-      state = state.copyWith(courses: updatedList, isLoading: false);
+      final updatedCourse = Course.fromJson(response.data);
+      final updatedList = currentList.map((c) => c.id == id ? updatedCourse : c).toList();
+      state = AsyncValue.data(updatedList);
       return true;
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
+    } catch (e, stack) {
+      state = AsyncValue.error(e.toString(), stack);
       return false;
     }
   }
@@ -111,6 +112,66 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
     } catch (e, stack) {
       state = AsyncValue.error(e.toString(), stack);
       return null;
+    }
+  }
+
+  Future<bool> updateModule(int moduleId, Map<String, dynamic> data) async {
+    try {
+      await _dio.put('/creator/modules/$moduleId', data: data);
+      fetchCourses();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteModule(int moduleId) async {
+    try {
+      await _dio.delete('/creator/modules/$moduleId');
+      fetchCourses();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> updateChapter(int chapterId, Map<String, dynamic> data) async {
+    try {
+      await _dio.put('/creator/chapters/$chapterId', data: data);
+      fetchCourses();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteChapter(int chapterId) async {
+    try {
+      await _dio.delete('/creator/chapters/$chapterId');
+      fetchCourses();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> updateLesson(int lessonId, Map<String, dynamic> data) async {
+    try {
+      await _dio.put('/creator/lessons/$lessonId', data: data);
+      fetchCourses();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> deleteLesson(int lessonId) async {
+    try {
+      await _dio.delete('/creator/lessons/$lessonId');
+      fetchCourses();
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 

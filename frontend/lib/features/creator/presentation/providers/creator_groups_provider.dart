@@ -187,6 +187,31 @@ class CreatorGroupsNotifier extends Notifier<AsyncValue<List<CreatorGroup>>> {
       return [];
     }
   }
+
+  Future<bool> removeStudentFromGroup(int groupId, String userId) async {
+    try {
+      final response = await _dio.delete('/creator/groups/$groupId/members/$userId');
+      if (response.statusCode == 200) {
+        fetchGroups();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getGroupAssignments(int groupId) async {
+    try {
+      final response = await _dio.get('/creator/groups/$groupId/assignments');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
 }
 
 final creatorGroupsProvider = NotifierProvider<CreatorGroupsNotifier, AsyncValue<List<CreatorGroup>>>(() {

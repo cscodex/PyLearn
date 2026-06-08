@@ -8,6 +8,7 @@ import '../../features/auth/presentation/pages/forgot_password_screen.dart';
 import '../presentation/pages/main_navigation_screen.dart';
 import '../../features/course/presentation/pages/dashboard_screen.dart';
 import '../../features/course/presentation/pages/course_detail_screen.dart';
+import '../../features/course/presentation/pages/course_player_screen.dart';
 import '../../features/course/presentation/pages/ide_screen.dart';
 import '../../features/course/presentation/pages/quiz_screen.dart';
 import '../../features/profile/presentation/pages/settings_screen.dart';
@@ -16,6 +17,7 @@ import '../../features/creator/presentation/pages/group_management_screen.dart';
 import '../../features/creator/presentation/pages/quiz_builder_screen.dart';
 import '../../features/creator/presentation/pages/creator_enrollment_tracking_screen.dart';
 import '../../features/creator/presentation/pages/curriculum_builder_screen.dart';
+import '../../features/creator/presentation/pages/course_editor_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -49,6 +51,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/courses/:courseId/learn/:lessonId',
+        builder: (context, state) {
+          final courseId = int.parse(state.pathParameters['courseId']!);
+          final lessonId = int.parse(state.pathParameters['lessonId']!);
+          return CoursePlayerScreen(courseId: courseId, lessonId: lessonId);
+        },
+      ),
+      GoRoute(
         path: '/ide/:lessonId',
         builder: (context, state) {
           final id = int.parse(state.pathParameters['lessonId']!);
@@ -77,6 +87,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/creator/course/new',
         builder: (context, state) => const CurriculumBuilderScreen(),
+      ),
+      GoRoute(
+        path: '/creator/course/:id/edit',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return CourseEditorScreen(courseId: id);
+        },
       ),
       GoRoute(
         path: '/creator/quiz_builder/:lessonId',

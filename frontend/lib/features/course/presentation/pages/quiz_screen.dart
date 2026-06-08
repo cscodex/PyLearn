@@ -3,7 +3,10 @@ import 'package:go_router/go_router.dart';
 
 class QuizScreen extends StatefulWidget {
   final int lessonId;
-  const QuizScreen({super.key, required this.lessonId});
+  final bool inline;
+  final VoidCallback? onComplete;
+  
+  const QuizScreen({super.key, required this.lessonId, this.inline = false, this.onComplete});
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -48,7 +51,12 @@ class _QuizScreenState extends State<QuizScreen> {
                 });
               } else {
                 // Finish Quiz
-                context.pop();
+                context.pop(); // Close dialog
+                if (widget.onComplete != null) {
+                  widget.onComplete!();
+                } else if (!widget.inline) {
+                  context.pop(); // Close screen
+                }
               }
             },
             child: const Text('Continue'),
@@ -65,7 +73,7 @@ class _QuizScreenState extends State<QuizScreen> {
     final options = question['options'] as List<String>;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: widget.inline ? null : AppBar(
         title: const Text('Knowledge Check'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),

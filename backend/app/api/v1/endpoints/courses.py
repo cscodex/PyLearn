@@ -103,13 +103,21 @@ async def enroll_course(
     enrollment = result.scalars().first()
     
     if enrollment:
-        raise HTTPException(status_code=400, detail="User is already enrolled in this course")
+        # Already enrolled, return 200 OK with the existing enrollment data
+        # so the frontend can seamlessly continue.
+        return {
+            "id": enrollment.id,
+            "course_id": enrollment.course_id,
+            "user_id": enrollment.user_id,
+            "enrolled_at": enrollment.enrolled_at,
+            "status": "active",
+            "progress_percentage": enrollment.progress_percentage
+        }
         
     new_enrollment = Enrollment(
         user_id=current_user.id,
         course_id=course_id,
-        status="active",
-        progress_percentage=0.0
+        progress_percentage=0
     )
     
     db.add(new_enrollment)
@@ -124,3 +132,104 @@ async def enroll_course(
         "status": "in_progress",
         "progress_percentage": 0.0
     }
+
+@router.get("/{course_id}/progress")
+async def get_course_progress(
+    course_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Get the current user's progress for a specific course."""
+    from app.models.progress import UserLessonProgress, Enrollment
+    
+    # Check enrollment
+    enrollment = await db.execute(
+        select(Enrollment).filter_by(user_id=current_user.id, course_id=course_id)
+    )
+    enrollment = enrollment.scalars().first()
+    
+    if not enrollment:
+        return {"completed_lesson_ids": [], "progress_percentage": 0.0}
+        
+    # Get all completed lessons
+    progress_records = await db.execute(
+        select(UserLessonProgress)
+        .filter_by(user_id=current_user.id, enrollment_id=enrollment.id, status="completed")
+    )
+    completed_lesson_ids = [p.lesson_id for p in progress_records.scalars().all()]
+    
+    return {
+        "completed_lesson_ids": completed_lesson_ids,
+        "progress_percentage": enrollment.progress_percentage or 0.0
+    }
+
+@router.post("/{course_id}/lessons/{lesson_id}/complete")
+async def complete_lesson(
+    course_id: int,
+    lesson_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Mark a lesson as complete and update course progress."""
+    from app.models.progress import UserLessonProgress, Enrollment
+    from app.models.course import Course, Module, Chapter, Lesson
+    from sqlalchemy import func
+    import datetime
+    
+    # Check enrollment
+    enrollment = await db.execute(
+        select(Enrollment).filter_by(user_id=current_user.id, course_id=course_id)
+    )
+    enrollment = enrollment.scalars().first()
+    
+    if not enrollment:
+        raise HTTPException(status_code=400, detail="Not enrolled in this course")
+        
+    # Check if progress record exists
+    progress_result = await db.execute(
+        select(UserLessonProgress)
+        .filter_by(user_id=current_user.id, lesson_id=lesson_id, enrollment_id=enrollment.id)
+    )
+    progress = progress_result.scalars().first()
+    
+    if progress:
+        if progress.status != "completed":
+            progress.status = "completed"
+            progress.completed_at = datetime.datetime.now(datetime.timezone.utc)
+    else:
+        progress = UserLessonProgress(
+            user_id=current_user.id,
+            lesson_id=lesson_id,
+            enrollment_id=enrollment.id,
+            status="completed",
+            completed_at=datetime.datetime.now(datetime.timezone.utc)
+        )
+        db.add(progress)
+        
+    # Calculate new progress percentage
+    # Count total lessons in course
+    total_lessons_result = await db.execute(
+        select(func.count(Lesson.id))
+        .join(Chapter, Lesson.chapter_id == Chapter.id)
+        .join(Module, Chapter.module_id == Module.id)
+        .filter(Module.course_id == course_id)
+    )
+    total_lessons = total_lessons_result.scalar() or 1
+    
+    # Count completed lessons for user
+    completed_lessons_result = await db.execute(
+        select(func.count(UserLessonProgress.id))
+        .filter_by(user_id=current_user.id, enrollment_id=enrollment.id, status="completed")
+    )
+    # +1 to include the one we just completed if it wasn't already in DB
+    completed_lessons = completed_lessons_result.scalar() or 0
+    if not progress.id: # If new, it won't be counted in the query yet since not committed
+        completed_lessons += 1
+        
+    percentage = min(100.0, (completed_lessons / total_lessons) * 100.0)
+    enrollment.progress_percentage = percentage
+    
+    await db.commit()
+    
+    return {"success": True, "progress_percentage": percentage}
+

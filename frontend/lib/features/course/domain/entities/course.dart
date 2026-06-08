@@ -12,7 +12,11 @@ abstract class Course with _$Course {
     String? description,
     String? thumbnailUrl,
     required String difficultyLevel,
+    required bool isPublished,
+    int? instructorId,
     @Default([]) List<Module> modules,
+    @Default(0.0) double progressPercentage,
+    @Default([]) List<int> completedLessonIds,
   }) = _Course;
 
   factory Course.fromJson(Map<String, dynamic> json) => _$CourseFromJson(json);
@@ -53,6 +57,7 @@ abstract class Lesson with _$Lesson {
     String? videoUrl,
     int? durationMinutes,
     required int orderIndex,
+    Map<String, dynamic>? contentBody,
     @Default(false) bool isPremium,
   }) = _Lesson;
 

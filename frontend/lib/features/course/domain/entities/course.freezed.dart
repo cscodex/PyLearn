@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Course {
 
- int get id; String get title; String get slug; String? get description; String? get thumbnailUrl; String get difficultyLevel; List<Module> get modules;
+ int get id; String get title; String get slug; String? get description; String? get thumbnailUrl; String get difficultyLevel; bool get isPublished; int? get instructorId; List<Module> get modules; double get progressPercentage; List<int> get completedLessonIds;
 /// Create a copy of Course
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $CourseCopyWith<Course> get copyWith => _$CourseCopyWithImpl<Course>(this as Cou
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Course&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.description, description) || other.description == description)&&(identical(other.thumbnailUrl, thumbnailUrl) || other.thumbnailUrl == thumbnailUrl)&&(identical(other.difficultyLevel, difficultyLevel) || other.difficultyLevel == difficultyLevel)&&const DeepCollectionEquality().equals(other.modules, modules));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Course&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.description, description) || other.description == description)&&(identical(other.thumbnailUrl, thumbnailUrl) || other.thumbnailUrl == thumbnailUrl)&&(identical(other.difficultyLevel, difficultyLevel) || other.difficultyLevel == difficultyLevel)&&(identical(other.isPublished, isPublished) || other.isPublished == isPublished)&&(identical(other.instructorId, instructorId) || other.instructorId == instructorId)&&const DeepCollectionEquality().equals(other.modules, modules)&&(identical(other.progressPercentage, progressPercentage) || other.progressPercentage == progressPercentage)&&const DeepCollectionEquality().equals(other.completedLessonIds, completedLessonIds));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,slug,description,thumbnailUrl,difficultyLevel,const DeepCollectionEquality().hash(modules));
+int get hashCode => Object.hash(runtimeType,id,title,slug,description,thumbnailUrl,difficultyLevel,isPublished,instructorId,const DeepCollectionEquality().hash(modules),progressPercentage,const DeepCollectionEquality().hash(completedLessonIds));
 
 @override
 String toString() {
-  return 'Course(id: $id, title: $title, slug: $slug, description: $description, thumbnailUrl: $thumbnailUrl, difficultyLevel: $difficultyLevel, modules: $modules)';
+  return 'Course(id: $id, title: $title, slug: $slug, description: $description, thumbnailUrl: $thumbnailUrl, difficultyLevel: $difficultyLevel, isPublished: $isPublished, instructorId: $instructorId, modules: $modules, progressPercentage: $progressPercentage, completedLessonIds: $completedLessonIds)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $CourseCopyWith<$Res>  {
   factory $CourseCopyWith(Course value, $Res Function(Course) _then) = _$CourseCopyWithImpl;
 @useResult
 $Res call({
- int id, String title, String slug, String? description, String? thumbnailUrl, String difficultyLevel, List<Module> modules
+ int id, String title, String slug, String? description, String? thumbnailUrl, String difficultyLevel, bool isPublished, int? instructorId, List<Module> modules, double progressPercentage, List<int> completedLessonIds
 });
 
 
@@ -65,7 +65,7 @@ class _$CourseCopyWithImpl<$Res>
 
 /// Create a copy of Course
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? slug = null,Object? description = freezed,Object? thumbnailUrl = freezed,Object? difficultyLevel = null,Object? modules = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? slug = null,Object? description = freezed,Object? thumbnailUrl = freezed,Object? difficultyLevel = null,Object? isPublished = null,Object? instructorId = freezed,Object? modules = null,Object? progressPercentage = null,Object? completedLessonIds = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -73,8 +73,12 @@ as String,slug: null == slug ? _self.slug : slug // ignore: cast_nullable_to_non
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,thumbnailUrl: freezed == thumbnailUrl ? _self.thumbnailUrl : thumbnailUrl // ignore: cast_nullable_to_non_nullable
 as String?,difficultyLevel: null == difficultyLevel ? _self.difficultyLevel : difficultyLevel // ignore: cast_nullable_to_non_nullable
-as String,modules: null == modules ? _self.modules : modules // ignore: cast_nullable_to_non_nullable
-as List<Module>,
+as String,isPublished: null == isPublished ? _self.isPublished : isPublished // ignore: cast_nullable_to_non_nullable
+as bool,instructorId: freezed == instructorId ? _self.instructorId : instructorId // ignore: cast_nullable_to_non_nullable
+as int?,modules: null == modules ? _self.modules : modules // ignore: cast_nullable_to_non_nullable
+as List<Module>,progressPercentage: null == progressPercentage ? _self.progressPercentage : progressPercentage // ignore: cast_nullable_to_non_nullable
+as double,completedLessonIds: null == completedLessonIds ? _self.completedLessonIds : completedLessonIds // ignore: cast_nullable_to_non_nullable
+as List<int>,
   ));
 }
 
@@ -159,10 +163,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String title,  String slug,  String? description,  String? thumbnailUrl,  String difficultyLevel,  List<Module> modules)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String title,  String slug,  String? description,  String? thumbnailUrl,  String difficultyLevel,  bool isPublished,  int? instructorId,  List<Module> modules,  double progressPercentage,  List<int> completedLessonIds)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Course() when $default != null:
-return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnailUrl,_that.difficultyLevel,_that.modules);case _:
+return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnailUrl,_that.difficultyLevel,_that.isPublished,_that.instructorId,_that.modules,_that.progressPercentage,_that.completedLessonIds);case _:
   return orElse();
 
 }
@@ -180,10 +184,10 @@ return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnai
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String title,  String slug,  String? description,  String? thumbnailUrl,  String difficultyLevel,  List<Module> modules)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String title,  String slug,  String? description,  String? thumbnailUrl,  String difficultyLevel,  bool isPublished,  int? instructorId,  List<Module> modules,  double progressPercentage,  List<int> completedLessonIds)  $default,) {final _that = this;
 switch (_that) {
 case _Course():
-return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnailUrl,_that.difficultyLevel,_that.modules);case _:
+return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnailUrl,_that.difficultyLevel,_that.isPublished,_that.instructorId,_that.modules,_that.progressPercentage,_that.completedLessonIds);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +204,10 @@ return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnai
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String title,  String slug,  String? description,  String? thumbnailUrl,  String difficultyLevel,  List<Module> modules)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String title,  String slug,  String? description,  String? thumbnailUrl,  String difficultyLevel,  bool isPublished,  int? instructorId,  List<Module> modules,  double progressPercentage,  List<int> completedLessonIds)?  $default,) {final _that = this;
 switch (_that) {
 case _Course() when $default != null:
-return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnailUrl,_that.difficultyLevel,_that.modules);case _:
+return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnailUrl,_that.difficultyLevel,_that.isPublished,_that.instructorId,_that.modules,_that.progressPercentage,_that.completedLessonIds);case _:
   return null;
 
 }
@@ -215,7 +219,7 @@ return $default(_that.id,_that.title,_that.slug,_that.description,_that.thumbnai
 @JsonSerializable()
 
 class _Course implements Course {
-  const _Course({required this.id, required this.title, required this.slug, this.description, this.thumbnailUrl, required this.difficultyLevel, final  List<Module> modules = const []}): _modules = modules;
+  const _Course({required this.id, required this.title, required this.slug, this.description, this.thumbnailUrl, required this.difficultyLevel, required this.isPublished, this.instructorId, final  List<Module> modules = const [], this.progressPercentage = 0.0, final  List<int> completedLessonIds = const []}): _modules = modules,_completedLessonIds = completedLessonIds;
   factory _Course.fromJson(Map<String, dynamic> json) => _$CourseFromJson(json);
 
 @override final  int id;
@@ -224,11 +228,21 @@ class _Course implements Course {
 @override final  String? description;
 @override final  String? thumbnailUrl;
 @override final  String difficultyLevel;
+@override final  bool isPublished;
+@override final  int? instructorId;
  final  List<Module> _modules;
 @override@JsonKey() List<Module> get modules {
   if (_modules is EqualUnmodifiableListView) return _modules;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_modules);
+}
+
+@override@JsonKey() final  double progressPercentage;
+ final  List<int> _completedLessonIds;
+@override@JsonKey() List<int> get completedLessonIds {
+  if (_completedLessonIds is EqualUnmodifiableListView) return _completedLessonIds;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_completedLessonIds);
 }
 
 
@@ -245,16 +259,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Course&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.description, description) || other.description == description)&&(identical(other.thumbnailUrl, thumbnailUrl) || other.thumbnailUrl == thumbnailUrl)&&(identical(other.difficultyLevel, difficultyLevel) || other.difficultyLevel == difficultyLevel)&&const DeepCollectionEquality().equals(other._modules, _modules));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Course&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.slug, slug) || other.slug == slug)&&(identical(other.description, description) || other.description == description)&&(identical(other.thumbnailUrl, thumbnailUrl) || other.thumbnailUrl == thumbnailUrl)&&(identical(other.difficultyLevel, difficultyLevel) || other.difficultyLevel == difficultyLevel)&&(identical(other.isPublished, isPublished) || other.isPublished == isPublished)&&(identical(other.instructorId, instructorId) || other.instructorId == instructorId)&&const DeepCollectionEquality().equals(other._modules, _modules)&&(identical(other.progressPercentage, progressPercentage) || other.progressPercentage == progressPercentage)&&const DeepCollectionEquality().equals(other._completedLessonIds, _completedLessonIds));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,slug,description,thumbnailUrl,difficultyLevel,const DeepCollectionEquality().hash(_modules));
+int get hashCode => Object.hash(runtimeType,id,title,slug,description,thumbnailUrl,difficultyLevel,isPublished,instructorId,const DeepCollectionEquality().hash(_modules),progressPercentage,const DeepCollectionEquality().hash(_completedLessonIds));
 
 @override
 String toString() {
-  return 'Course(id: $id, title: $title, slug: $slug, description: $description, thumbnailUrl: $thumbnailUrl, difficultyLevel: $difficultyLevel, modules: $modules)';
+  return 'Course(id: $id, title: $title, slug: $slug, description: $description, thumbnailUrl: $thumbnailUrl, difficultyLevel: $difficultyLevel, isPublished: $isPublished, instructorId: $instructorId, modules: $modules, progressPercentage: $progressPercentage, completedLessonIds: $completedLessonIds)';
 }
 
 
@@ -265,7 +279,7 @@ abstract mixin class _$CourseCopyWith<$Res> implements $CourseCopyWith<$Res> {
   factory _$CourseCopyWith(_Course value, $Res Function(_Course) _then) = __$CourseCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String title, String slug, String? description, String? thumbnailUrl, String difficultyLevel, List<Module> modules
+ int id, String title, String slug, String? description, String? thumbnailUrl, String difficultyLevel, bool isPublished, int? instructorId, List<Module> modules, double progressPercentage, List<int> completedLessonIds
 });
 
 
@@ -282,7 +296,7 @@ class __$CourseCopyWithImpl<$Res>
 
 /// Create a copy of Course
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? slug = null,Object? description = freezed,Object? thumbnailUrl = freezed,Object? difficultyLevel = null,Object? modules = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? slug = null,Object? description = freezed,Object? thumbnailUrl = freezed,Object? difficultyLevel = null,Object? isPublished = null,Object? instructorId = freezed,Object? modules = null,Object? progressPercentage = null,Object? completedLessonIds = null,}) {
   return _then(_Course(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -290,8 +304,12 @@ as String,slug: null == slug ? _self.slug : slug // ignore: cast_nullable_to_non
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,thumbnailUrl: freezed == thumbnailUrl ? _self.thumbnailUrl : thumbnailUrl // ignore: cast_nullable_to_non_nullable
 as String?,difficultyLevel: null == difficultyLevel ? _self.difficultyLevel : difficultyLevel // ignore: cast_nullable_to_non_nullable
-as String,modules: null == modules ? _self._modules : modules // ignore: cast_nullable_to_non_nullable
-as List<Module>,
+as String,isPublished: null == isPublished ? _self.isPublished : isPublished // ignore: cast_nullable_to_non_nullable
+as bool,instructorId: freezed == instructorId ? _self.instructorId : instructorId // ignore: cast_nullable_to_non_nullable
+as int?,modules: null == modules ? _self._modules : modules // ignore: cast_nullable_to_non_nullable
+as List<Module>,progressPercentage: null == progressPercentage ? _self.progressPercentage : progressPercentage // ignore: cast_nullable_to_non_nullable
+as double,completedLessonIds: null == completedLessonIds ? _self._completedLessonIds : completedLessonIds // ignore: cast_nullable_to_non_nullable
+as List<int>,
   ));
 }
 
@@ -864,7 +882,7 @@ as List<Lesson>,
 /// @nodoc
 mixin _$Lesson {
 
- int get id; String get title; String get contentType; String? get videoUrl; int? get durationMinutes; int get orderIndex; bool get isPremium;
+ int get id; String get title; String get contentType; String? get videoUrl; int? get durationMinutes; int get orderIndex; Map<String, dynamic>? get contentBody; bool get isPremium;
 /// Create a copy of Lesson
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -877,16 +895,16 @@ $LessonCopyWith<Lesson> get copyWith => _$LessonCopyWithImpl<Lesson>(this as Les
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Lesson&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.videoUrl, videoUrl) || other.videoUrl == videoUrl)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.orderIndex, orderIndex) || other.orderIndex == orderIndex)&&(identical(other.isPremium, isPremium) || other.isPremium == isPremium));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Lesson&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.videoUrl, videoUrl) || other.videoUrl == videoUrl)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.orderIndex, orderIndex) || other.orderIndex == orderIndex)&&const DeepCollectionEquality().equals(other.contentBody, contentBody)&&(identical(other.isPremium, isPremium) || other.isPremium == isPremium));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,contentType,videoUrl,durationMinutes,orderIndex,isPremium);
+int get hashCode => Object.hash(runtimeType,id,title,contentType,videoUrl,durationMinutes,orderIndex,const DeepCollectionEquality().hash(contentBody),isPremium);
 
 @override
 String toString() {
-  return 'Lesson(id: $id, title: $title, contentType: $contentType, videoUrl: $videoUrl, durationMinutes: $durationMinutes, orderIndex: $orderIndex, isPremium: $isPremium)';
+  return 'Lesson(id: $id, title: $title, contentType: $contentType, videoUrl: $videoUrl, durationMinutes: $durationMinutes, orderIndex: $orderIndex, contentBody: $contentBody, isPremium: $isPremium)';
 }
 
 
@@ -897,7 +915,7 @@ abstract mixin class $LessonCopyWith<$Res>  {
   factory $LessonCopyWith(Lesson value, $Res Function(Lesson) _then) = _$LessonCopyWithImpl;
 @useResult
 $Res call({
- int id, String title, String contentType, String? videoUrl, int? durationMinutes, int orderIndex, bool isPremium
+ int id, String title, String contentType, String? videoUrl, int? durationMinutes, int orderIndex, Map<String, dynamic>? contentBody, bool isPremium
 });
 
 
@@ -914,7 +932,7 @@ class _$LessonCopyWithImpl<$Res>
 
 /// Create a copy of Lesson
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? contentType = null,Object? videoUrl = freezed,Object? durationMinutes = freezed,Object? orderIndex = null,Object? isPremium = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? contentType = null,Object? videoUrl = freezed,Object? durationMinutes = freezed,Object? orderIndex = null,Object? contentBody = freezed,Object? isPremium = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -922,7 +940,8 @@ as String,contentType: null == contentType ? _self.contentType : contentType // 
 as String,videoUrl: freezed == videoUrl ? _self.videoUrl : videoUrl // ignore: cast_nullable_to_non_nullable
 as String?,durationMinutes: freezed == durationMinutes ? _self.durationMinutes : durationMinutes // ignore: cast_nullable_to_non_nullable
 as int?,orderIndex: null == orderIndex ? _self.orderIndex : orderIndex // ignore: cast_nullable_to_non_nullable
-as int,isPremium: null == isPremium ? _self.isPremium : isPremium // ignore: cast_nullable_to_non_nullable
+as int,contentBody: freezed == contentBody ? _self.contentBody : contentBody // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>?,isPremium: null == isPremium ? _self.isPremium : isPremium // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -1008,10 +1027,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String title,  String contentType,  String? videoUrl,  int? durationMinutes,  int orderIndex,  bool isPremium)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String title,  String contentType,  String? videoUrl,  int? durationMinutes,  int orderIndex,  Map<String, dynamic>? contentBody,  bool isPremium)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Lesson() when $default != null:
-return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.durationMinutes,_that.orderIndex,_that.isPremium);case _:
+return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.durationMinutes,_that.orderIndex,_that.contentBody,_that.isPremium);case _:
   return orElse();
 
 }
@@ -1029,10 +1048,10 @@ return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.dura
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String title,  String contentType,  String? videoUrl,  int? durationMinutes,  int orderIndex,  bool isPremium)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String title,  String contentType,  String? videoUrl,  int? durationMinutes,  int orderIndex,  Map<String, dynamic>? contentBody,  bool isPremium)  $default,) {final _that = this;
 switch (_that) {
 case _Lesson():
-return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.durationMinutes,_that.orderIndex,_that.isPremium);case _:
+return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.durationMinutes,_that.orderIndex,_that.contentBody,_that.isPremium);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1049,10 +1068,10 @@ return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.dura
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String title,  String contentType,  String? videoUrl,  int? durationMinutes,  int orderIndex,  bool isPremium)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String title,  String contentType,  String? videoUrl,  int? durationMinutes,  int orderIndex,  Map<String, dynamic>? contentBody,  bool isPremium)?  $default,) {final _that = this;
 switch (_that) {
 case _Lesson() when $default != null:
-return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.durationMinutes,_that.orderIndex,_that.isPremium);case _:
+return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.durationMinutes,_that.orderIndex,_that.contentBody,_that.isPremium);case _:
   return null;
 
 }
@@ -1064,7 +1083,7 @@ return $default(_that.id,_that.title,_that.contentType,_that.videoUrl,_that.dura
 @JsonSerializable()
 
 class _Lesson implements Lesson {
-  const _Lesson({required this.id, required this.title, required this.contentType, this.videoUrl, this.durationMinutes, required this.orderIndex, this.isPremium = false});
+  const _Lesson({required this.id, required this.title, required this.contentType, this.videoUrl, this.durationMinutes, required this.orderIndex, final  Map<String, dynamic>? contentBody, this.isPremium = false}): _contentBody = contentBody;
   factory _Lesson.fromJson(Map<String, dynamic> json) => _$LessonFromJson(json);
 
 @override final  int id;
@@ -1073,6 +1092,15 @@ class _Lesson implements Lesson {
 @override final  String? videoUrl;
 @override final  int? durationMinutes;
 @override final  int orderIndex;
+ final  Map<String, dynamic>? _contentBody;
+@override Map<String, dynamic>? get contentBody {
+  final value = _contentBody;
+  if (value == null) return null;
+  if (_contentBody is EqualUnmodifiableMapView) return _contentBody;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(value);
+}
+
 @override@JsonKey() final  bool isPremium;
 
 /// Create a copy of Lesson
@@ -1088,16 +1116,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Lesson&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.videoUrl, videoUrl) || other.videoUrl == videoUrl)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.orderIndex, orderIndex) || other.orderIndex == orderIndex)&&(identical(other.isPremium, isPremium) || other.isPremium == isPremium));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Lesson&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.contentType, contentType) || other.contentType == contentType)&&(identical(other.videoUrl, videoUrl) || other.videoUrl == videoUrl)&&(identical(other.durationMinutes, durationMinutes) || other.durationMinutes == durationMinutes)&&(identical(other.orderIndex, orderIndex) || other.orderIndex == orderIndex)&&const DeepCollectionEquality().equals(other._contentBody, _contentBody)&&(identical(other.isPremium, isPremium) || other.isPremium == isPremium));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,contentType,videoUrl,durationMinutes,orderIndex,isPremium);
+int get hashCode => Object.hash(runtimeType,id,title,contentType,videoUrl,durationMinutes,orderIndex,const DeepCollectionEquality().hash(_contentBody),isPremium);
 
 @override
 String toString() {
-  return 'Lesson(id: $id, title: $title, contentType: $contentType, videoUrl: $videoUrl, durationMinutes: $durationMinutes, orderIndex: $orderIndex, isPremium: $isPremium)';
+  return 'Lesson(id: $id, title: $title, contentType: $contentType, videoUrl: $videoUrl, durationMinutes: $durationMinutes, orderIndex: $orderIndex, contentBody: $contentBody, isPremium: $isPremium)';
 }
 
 
@@ -1108,7 +1136,7 @@ abstract mixin class _$LessonCopyWith<$Res> implements $LessonCopyWith<$Res> {
   factory _$LessonCopyWith(_Lesson value, $Res Function(_Lesson) _then) = __$LessonCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String title, String contentType, String? videoUrl, int? durationMinutes, int orderIndex, bool isPremium
+ int id, String title, String contentType, String? videoUrl, int? durationMinutes, int orderIndex, Map<String, dynamic>? contentBody, bool isPremium
 });
 
 
@@ -1125,7 +1153,7 @@ class __$LessonCopyWithImpl<$Res>
 
 /// Create a copy of Lesson
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? contentType = null,Object? videoUrl = freezed,Object? durationMinutes = freezed,Object? orderIndex = null,Object? isPremium = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? contentType = null,Object? videoUrl = freezed,Object? durationMinutes = freezed,Object? orderIndex = null,Object? contentBody = freezed,Object? isPremium = null,}) {
   return _then(_Lesson(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as int,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -1133,7 +1161,8 @@ as String,contentType: null == contentType ? _self.contentType : contentType // 
 as String,videoUrl: freezed == videoUrl ? _self.videoUrl : videoUrl // ignore: cast_nullable_to_non_nullable
 as String?,durationMinutes: freezed == durationMinutes ? _self.durationMinutes : durationMinutes // ignore: cast_nullable_to_non_nullable
 as int?,orderIndex: null == orderIndex ? _self.orderIndex : orderIndex // ignore: cast_nullable_to_non_nullable
-as int,isPremium: null == isPremium ? _self.isPremium : isPremium // ignore: cast_nullable_to_non_nullable
+as int,contentBody: freezed == contentBody ? _self._contentBody : contentBody // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>?,isPremium: null == isPremium ? _self.isPremium : isPremium // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

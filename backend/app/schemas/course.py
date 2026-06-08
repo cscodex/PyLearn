@@ -27,6 +27,15 @@ class LessonResponse(LessonBase):
 class LessonCreate(LessonBase):
     pass
 
+class LessonUpdate(CamelCaseBaseModel):
+    title: Optional[str] = None
+    content_type: Optional[str] = None
+    content_body: Optional[Dict[str, Any]] = None
+    video_url: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    order_index: Optional[int] = None
+    is_premium: Optional[bool] = None
+
 class ChapterBase(CamelCaseBaseModel):
     title: str
     description: Optional[str] = None
@@ -34,6 +43,11 @@ class ChapterBase(CamelCaseBaseModel):
 
 class ChapterCreate(ChapterBase):
     pass
+
+class ChapterUpdate(CamelCaseBaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    order_index: Optional[int] = None
 
 class ChapterResponse(ChapterBase):
     id: int
@@ -47,6 +61,11 @@ class ModuleBase(CamelCaseBaseModel):
 
 class ModuleCreate(ModuleBase):
     pass
+
+class ModuleUpdate(CamelCaseBaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    order_index: Optional[int] = None
 
 class ModuleResponse(ModuleBase):
     id: int

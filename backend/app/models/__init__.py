@@ -4,6 +4,7 @@ from app.models.assessment import Question, QuestionOption, CodingChallenge, Tes
 from app.models.gamification import UserScore, XpTransaction, Streak, Achievement, UserAchievement
 from app.models.progress import Enrollment, UserLessonProgress, Bookmark
 from app.models.misc import Certificate, Notification, ActivityLog, PasswordResetToken
+from app.models.group import Group, GroupMember, GroupAssignment
 
 # Export all models so Alembic can discover them
 __all__ = [
@@ -12,5 +13,6 @@ __all__ = [
     "Question", "QuestionOption", "CodingChallenge", "TestCase", "QuizSubmission", "CodeSubmission",
     "UserScore", "XpTransaction", "Streak", "Achievement", "UserAchievement",
     "Enrollment", "UserLessonProgress", "Bookmark",
-    "Certificate", "Notification", "ActivityLog", "PasswordResetToken"
+    "Certificate", "Notification", "ActivityLog", "PasswordResetToken",
+    "Group", "GroupMember", "GroupAssignment"
 ]

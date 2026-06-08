@@ -72,50 +72,64 @@ class CourseDetailScreen extends ConsumerWidget {
                             width: double.infinity,
                             child: Consumer(
                               builder: (context, ref, child) {
-                                final isEnrolled = ref.watch(enrolledCoursesProvider).maybeWhen(
-                                  data: (courses) => courses.any((c) => c.id == courseId),
-                                  orElse: () => false,
-                                );
-
-                                return ElevatedButton(
-                                  onPressed: () async {
-                                    if (isEnrolled) {
-                                      // Continue course
-                                      if (course.modules.isNotEmpty && course.modules.first.chapters.isNotEmpty) {
-                                        context.push('/ide/${course.modules.first.chapters.first.id}');
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Course has no content yet.')),
-                                        );
-                                      }
-                                      return;
-                                    }
-
-                                    final repo = ref.read(courseRepositoryProvider);
-                                    final success = await repo.enrollInCourse(courseId);
-                                    if (context.mounted) {
-                                      if (success) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Successfully enrolled!')),
-                                        );
-                                        ref.refresh(enrolledCoursesProvider);
-                                        ref.refresh(courseDetailsProvider(courseId));
-                                        if (course.modules.isNotEmpty && course.modules.first.chapters.isNotEmpty) {
-                                          context.push('/ide/${course.modules.first.chapters.first.id}');
+                                final enrolledCoursesAsync = ref.watch(enrolledCoursesProvider);
+                                
+                                return enrolledCoursesAsync.when(
+                                  data: (courses) {
+                                    final isEnrolled = courses.any((c) => c.id == courseId);
+                                    return ElevatedButton(
+                                      onPressed: () async {
+                                        if (isEnrolled) {
+                                          // Continue course
+                                          if (course.modules.isNotEmpty && course.modules.first.chapters.isNotEmpty && course.modules.first.chapters.first.lessons.isNotEmpty) {
+                                            context.push('/courses/$courseId/learn/${course.modules.first.chapters.first.lessons.first.id}');
+                                          } else {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Course has no content yet.')),
+                                            );
+                                          }
+                                          return;
                                         }
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Failed to enroll or already enrolled.')),
-                                        );
-                                      }
-                                    }
+
+                                        final repo = ref.read(courseRepositoryProvider);
+                                        final success = await repo.enrollInCourse(courseId);
+                                        if (context.mounted) {
+                                          if (success) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Successfully enrolled!')),
+                                            );
+                                            ref.refresh(enrolledCoursesProvider);
+                                            ref.refresh(courseDetailsProvider(courseId));
+                                            if (course.modules.isNotEmpty && course.modules.first.chapters.isNotEmpty && course.modules.first.chapters.first.lessons.isNotEmpty) {
+                                              context.push('/courses/$courseId/learn/${course.modules.first.chapters.first.lessons.first.id}');
+                                            }
+                                          } else {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Failed to enroll. Please try again.')),
+                                            );
+                                          }
+                                        }
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                      ),
+                                      child: Text(
+                                        isEnrolled ? 'Continue Course' : 'Enroll Now', 
+                                        style: const TextStyle(fontSize: 18)
+                                      ),
+                                    );
                                   },
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                  loading: () => const ElevatedButton(
+                                    onPressed: null,
+                                    child: SizedBox(
+                                      height: 20, 
+                                      width: 20, 
+                                      child: CircularProgressIndicator(strokeWidth: 2)
+                                    )
                                   ),
-                                  child: Text(
-                                    isEnrolled ? 'Continue Course' : 'Enroll Now', 
-                                    style: const TextStyle(fontSize: 18)
+                                  error: (_, __) => ElevatedButton(
+                                    onPressed: () => ref.refresh(enrolledCoursesProvider),
+                                    child: const Text('Retry Loading')
                                   ),
                                 );
                               }
@@ -156,17 +170,19 @@ class CourseDetailScreen extends ConsumerWidget {
                             ? Text(module.description!)
                             : null,
                         children: module.chapters.map((chapter) {
-                          return ListTile(
-                            contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                          return ExpansionTile(
                             title: Text(chapter.title),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () {
-                              if (chapter.id % 2 == 0) {
-                                context.push('/quiz/${chapter.id}');
-                              } else {
-                                context.push('/ide/${chapter.id}');
-                              }
-                            },
+                            children: chapter.lessons.map((lesson) {
+                              return ListTile(
+                                contentPadding: const EdgeInsets.only(left: 48, right: 16),
+                                leading: const Icon(Icons.play_circle_outline, size: 20),
+                                title: Text(lesson.title, style: const TextStyle(fontSize: 14)),
+                                trailing: const Icon(Icons.chevron_right, size: 16),
+                                onTap: () {
+                                  context.push('/courses/$courseId/learn/${lesson.id}');
+                                },
+                              );
+                            }).toList(),
                           );
                         }).toList(),
                       );

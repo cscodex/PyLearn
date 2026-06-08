@@ -78,8 +78,11 @@ async def get_my_groups(
 ) -> Any:
     """List all groups managed by the current creator."""
     check_creator_permission(current_user)
-    
-    result = await db.execute(select(Group).filter(Group.creator_id == current_user.id))
+    if current_user.role == "admin":
+        result = await db.execute(select(Group))
+    else:
+        result = await db.execute(select(Group).filter(Group.creator_id == current_user.id))
+        
     groups = result.scalars().all()
     
     response_groups = []
@@ -343,3 +346,55 @@ async def assign_courses_bulk(
         await db.commit()
         
     return {"status": "success", "assigned_count": assigned}
+
+@router.delete("/{group_id}/members/{user_id}", response_model=dict)
+async def remove_student_from_group(
+    group_id: int,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Remove a student from a group."""
+    check_creator_permission(current_user)
+    
+    group_res = await db.execute(select(Group).filter(Group.id == group_id, Group.creator_id == current_user.id))
+    if not group_res.scalars().first():
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    member_res = await db.execute(select(GroupMember).filter(GroupMember.group_id == group_id, GroupMember.user_id == user_id))
+    member = member_res.scalars().first()
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="Student not found in group")
+        
+    await db.delete(member)
+    await db.commit()
+    
+    return {"status": "success", "message": "Student removed from group"}
+
+@router.get("/{group_id}/assignments", response_model=List[GroupAssignmentResponse])
+async def get_group_assignments(
+    group_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Get all courses assigned to a group."""
+    check_creator_permission(current_user)
+    
+    group_res = await db.execute(select(Group).filter(Group.id == group_id, Group.creator_id == current_user.id))
+    if not group_res.scalars().first():
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    result = await db.execute(select(GroupAssignment).filter(GroupAssignment.group_id == group_id))
+    assignments = result.scalars().all()
+    
+    return [
+        GroupAssignmentResponse(
+            id=a.id,
+            group_id=a.group_id,
+            course_id=a.course_id,
+            assigned_by=a.assigned_by,
+            assignment_type=a.assignment_type,
+            created_at=a.created_at
+        ) for a in assignments
+    ]

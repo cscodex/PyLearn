@@ -63,4 +63,21 @@ class CourseRepository {
       return false;
     }
   }
+  Future<Map<String, dynamic>> getCourseProgress(int courseId) async {
+    try {
+      final response = await _dio.get('/courses/$courseId/progress');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      return {'completed_lesson_ids': [], 'progress_percentage': 0.0};
+    }
+  }
+
+  Future<Map<String, dynamic>> markLessonAsComplete(int courseId, int lessonId) async {
+    try {
+      final response = await _dio.post('/courses/$courseId/lessons/$lessonId/complete');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('Failed to mark lesson complete: $e');
+    }
+  }
 }

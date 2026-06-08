@@ -19,5 +19,13 @@ final recommendedCoursesProvider = FutureProvider<List<Course>>((ref) async {
 
 final courseDetailsProvider = FutureProvider.family<Course, int>((ref, id) async {
   final repository = ref.watch(courseRepositoryProvider);
-  return repository.getCourseDetails(id);
+  final course = await repository.getCourseDetails(id);
+  
+  // Fetch progress if enrolled
+  final progress = await repository.getCourseProgress(id);
+  
+  return course.copyWith(
+    progressPercentage: progress['progress_percentage']?.toDouble() ?? 0.0,
+    completedLessonIds: List<int>.from(progress['completed_lesson_ids'] ?? []),
+  );
 });

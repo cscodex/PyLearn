@@ -25,6 +25,8 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> with Si
   bool _isSearching = false;
 
   // Courses Tab State
+  List<Map<String, dynamic>> _currentAssignments = [];
+  bool _isLoadingAssignments = true;
   List<int> _selectedCourseIds = [];
   bool _isMandatory = true;
 
@@ -33,6 +35,21 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> with Si
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadMembers();
+    _loadAssignments();
+  }
+
+  Future<void> _loadAssignments() async {
+    setState(() => _isLoadingAssignments = true);
+    final assignments = await ref.read(creatorGroupsProvider.notifier).getGroupAssignments(widget.group.id);
+    if (mounted) {
+      setState(() {
+        _currentAssignments = assignments;
+        _isLoadingAssignments = false;
+        
+        // Auto-select assigned courses in the list
+        _selectedCourseIds = assignments.map((a) => a['course_id'] as int).toList();
+      });
+    }
   }
 
   Future<void> _loadMembers() async {
@@ -57,7 +74,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> with Si
   Widget build(BuildContext context) {
     final isLoadingGroups = ref.watch(creatorGroupsProvider).isLoading;
     final isLoadingCourses = ref.watch(creatorCoursesProvider).isLoading;
-    final isLoading = isLoadingGroups || isLoadingCourses || _isSearching || _isLoadingMembers;
+    final isLoading = isLoadingGroups || isLoadingCourses || _isSearching || _isLoadingMembers || _isLoadingAssignments;
 
     return LoadingOverlay(
       isLoading: isLoading,
@@ -112,6 +129,10 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> with Si
                             leading: const CircleAvatar(child: Icon(Icons.person)),
                             title: Text(user['full_name'] ?? user['fullName'] ?? 'Unknown'),
                             subtitle: Text(user['email'] ?? ''),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                              onPressed: () => _removeStudent(user),
+                            ),
                           );
                         },
                       ),
@@ -206,7 +227,6 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> with Si
   }
 
   Future<void> _performSearch() async {
-    if (_searchCtrl.text.isEmpty) return;
     setState(() => _isSearching = true);
     final res = await ref.read(creatorGroupsProvider.notifier).searchStudents(_searchCtrl.text);
     if (mounted) {
@@ -229,6 +249,28 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> with Si
       });
       _loadMembers(); // Refresh members list
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Students added successfully.')));
+    }
+  }
+
+  Future<void> _removeStudent(Map<String, dynamic> user) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Student'),
+        content: Text('Are you sure you want to remove ${user['full_name']} from this group?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await ref.read(creatorGroupsProvider.notifier).removeStudentFromGroup(widget.group.id, user['id'].toString());
+      if (success && mounted) {
+        _loadMembers();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student removed.')));
+      }
     }
   }
 

@@ -7,7 +7,7 @@ from app.api import deps
 from app.models.user import User
 from app.models.course import Course, Module, Chapter, Lesson
 from app.models.assessment import Question, QuestionOption, CodingChallenge, TestCase
-from app.schemas.course import CourseCreate, CourseResponse, CourseListResponse, ModuleCreate, ModuleResponse, ChapterCreate, ChapterResponse, LessonCreate, LessonResponse
+from app.schemas.course import CourseCreate, CourseResponse, CourseListResponse, ModuleCreate, ModuleUpdate, ModuleResponse, ChapterCreate, ChapterUpdate, ChapterResponse, LessonCreate, LessonUpdate, LessonResponse
 from app.schemas.assessment import QuestionCreate, QuestionResponse, CodingChallengeCreate, CodingChallengeResponse
 
 router = APIRouter()
@@ -361,3 +361,207 @@ async def update_course(
         "updated_at": course.updated_at,
         "modules": []
     }
+
+@router.put("/modules/{module_id}", response_model=ModuleResponse)
+async def update_module(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    module_id: int,
+    module_in: ModuleUpdate,
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    result = await db.execute(select(Module).filter(Module.id == module_id))
+    module = result.scalars().first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    # Check ownership
+    course_res = await db.execute(select(Course).filter(Course.id == module.course_id))
+    course = course_res.scalars().first()
+    if not course or (course.instructor_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized to edit this module")
+        
+    if module_in.title is not None:
+        module.title = module_in.title
+    if module_in.description is not None:
+        module.description = module_in.description
+    if module_in.order_index is not None:
+        module.order_index = module_in.order_index
+        
+    await db.commit()
+    await db.refresh(module)
+    return {
+        "id": module.id,
+        "course_id": module.course_id,
+        "title": module.title,
+        "description": module.description,
+        "order_index": module.order_index,
+        "chapters": []
+    }
+
+@router.delete("/modules/{module_id}")
+async def delete_module(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    module_id: int,
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    result = await db.execute(select(Module).filter(Module.id == module_id))
+    module = result.scalars().first()
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    course_res = await db.execute(select(Course).filter(Course.id == module.course_id))
+    course = course_res.scalars().first()
+    if not course or (course.instructor_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this module")
+        
+    await db.delete(module)
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/chapters/{chapter_id}", response_model=ChapterResponse)
+async def update_chapter(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    chapter_id: int,
+    chapter_in: ChapterUpdate,
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    result = await db.execute(select(Chapter).filter(Chapter.id == chapter_id))
+    chapter = result.scalars().first()
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+        
+    # Check ownership
+    mod_res = await db.execute(select(Module).filter(Module.id == chapter.module_id))
+    module = mod_res.scalars().first()
+    if not module:
+        raise HTTPException(status_code=404)
+    course_res = await db.execute(select(Course).filter(Course.id == module.course_id))
+    course = course_res.scalars().first()
+    if not course or (course.instructor_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=403, detail="Not authorized to edit this chapter")
+        
+    if chapter_in.title is not None:
+        chapter.title = chapter_in.title
+    if chapter_in.description is not None:
+        chapter.description = chapter_in.description
+    if chapter_in.order_index is not None:
+        chapter.order_index = chapter_in.order_index
+        
+    await db.commit()
+    await db.refresh(chapter)
+    return {
+        "id": chapter.id,
+        "module_id": chapter.module_id,
+        "title": chapter.title,
+        "description": chapter.description,
+        "order_index": chapter.order_index,
+        "lessons": []
+    }
+
+@router.delete("/chapters/{chapter_id}")
+async def delete_chapter(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    chapter_id: int,
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    result = await db.execute(select(Chapter).filter(Chapter.id == chapter_id))
+    chapter = result.scalars().first()
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+        
+    mod_res = await db.execute(select(Module).filter(Module.id == chapter.module_id))
+    module = mod_res.scalars().first()
+    if module:
+        course_res = await db.execute(select(Course).filter(Course.id == module.course_id))
+        course = course_res.scalars().first()
+        if course and course.instructor_id != current_user.id and current_user.role != "admin":
+            raise HTTPException(status_code=403, detail="Not authorized")
+            
+    await db.delete(chapter)
+    await db.commit()
+    return {"status": "success"}
+
+@router.put("/lessons/{lesson_id}", response_model=LessonResponse)
+async def update_lesson(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    lesson_id: int,
+    lesson_in: LessonUpdate,
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    result = await db.execute(select(Lesson).filter(Lesson.id == lesson_id))
+    lesson = result.scalars().first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+        
+    # Check ownership
+    chap_res = await db.execute(select(Chapter).filter(Chapter.id == lesson.chapter_id))
+    chapter = chap_res.scalars().first()
+    if chapter:
+        mod_res = await db.execute(select(Module).filter(Module.id == chapter.module_id))
+        module = mod_res.scalars().first()
+        if module:
+            course_res = await db.execute(select(Course).filter(Course.id == module.course_id))
+            course = course_res.scalars().first()
+            if course and course.instructor_id != current_user.id and current_user.role != "admin":
+                raise HTTPException(status_code=403, detail="Not authorized")
+                
+    if lesson_in.title is not None:
+        lesson.title = lesson_in.title
+    if lesson_in.content_type is not None:
+        lesson.content_type = lesson_in.content_type
+    if lesson_in.content_body is not None:
+        lesson.content_body = lesson_in.content_body
+    if lesson_in.video_url is not None:
+        lesson.video_url = lesson_in.video_url
+    if lesson_in.duration_minutes is not None:
+        lesson.duration_minutes = lesson_in.duration_minutes
+    if lesson_in.order_index is not None:
+        lesson.order_index = lesson_in.order_index
+    if lesson_in.is_premium is not None:
+        lesson.is_free_preview = not lesson_in.is_premium
+        
+    await db.commit()
+    await db.refresh(lesson)
+    return {
+        "id": lesson.id,
+        "chapter_id": lesson.chapter_id,
+        "title": lesson.title,
+        "content_type": lesson.content_type,
+        "content_body": lesson.content_body,
+        "video_url": lesson.video_url,
+        "duration_minutes": lesson.duration_minutes,
+        "order_index": lesson.order_index,
+        "is_premium": not lesson.is_free_preview
+    }
+
+@router.delete("/lessons/{lesson_id}")
+async def delete_lesson(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    lesson_id: int,
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    result = await db.execute(select(Lesson).filter(Lesson.id == lesson_id))
+    lesson = result.scalars().first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+        
+    chap_res = await db.execute(select(Chapter).filter(Chapter.id == lesson.chapter_id))
+    chapter = chap_res.scalars().first()
+    if chapter:
+        mod_res = await db.execute(select(Module).filter(Module.id == chapter.module_id))
+        module = mod_res.scalars().first()
+        if module:
+            course_res = await db.execute(select(Course).filter(Course.id == module.course_id))
+            course = course_res.scalars().first()
+            if course and course.instructor_id != current_user.id and current_user.role != "admin":
+                raise HTTPException(status_code=403, detail="Not authorized")
+                
+    await db.delete(lesson)
+    await db.commit()
+    return {"status": "success"}

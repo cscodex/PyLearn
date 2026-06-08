@@ -7,8 +7,10 @@ import '../providers/execution_provider.dart';
 
 class IdeScreen extends ConsumerStatefulWidget {
   final int lessonId;
+  final bool inline;
+  final VoidCallback? onComplete;
   
-  const IdeScreen({super.key, required this.lessonId});
+  const IdeScreen({super.key, required this.lessonId, this.inline = false, this.onComplete});
 
   @override
   ConsumerState<IdeScreen> createState() => _IdeScreenState();
@@ -69,7 +71,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     final theme = Theme.of(context);
     
     return Scaffold(
-      appBar: AppBar(
+      appBar: widget.inline ? null : AppBar(
         title: const Text('Interactive IDE'),
         actions: [
           Padding(
@@ -171,6 +173,28 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                     ],
                   ),
                 ),
+                if (widget.inline) ...[
+                  const Spacer(),
+                  const Divider(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _isExecuting ? null : _runCode,
+                        icon: _isExecuting 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.play_arrow),
+                        label: const Text('Run Code'),
+                        style: FilledButton.styleFrom(backgroundColor: Colors.green.shade600),
+                      ),
+                      if (widget.onComplete != null)
+                        FilledButton(
+                          onPressed: widget.onComplete,
+                          child: const Text('Mark Complete & Continue'),
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           );
