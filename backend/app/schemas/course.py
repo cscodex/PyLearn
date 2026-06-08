@@ -83,6 +83,14 @@ class CourseBase(CamelCaseBaseModel):
 class CourseCreate(CourseBase):
     pass
 
+class CourseUpdate(CamelCaseBaseModel):
+    title: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    difficulty_level: Optional[str] = Field(None, validation_alias=AliasChoices('difficulty', 'difficulty_level'))
+    is_published: Optional[bool] = None
+
 class CourseResponse(CourseBase):
     id: int
     created_at: datetime

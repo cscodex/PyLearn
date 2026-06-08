@@ -7,7 +7,7 @@ from app.api import deps
 from app.models.user import User
 from app.models.course import Course, Module, Chapter, Lesson
 from app.models.assessment import Question, QuestionOption, CodingChallenge, TestCase
-from app.schemas.course import CourseCreate, CourseResponse, CourseListResponse, ModuleCreate, ModuleUpdate, ModuleResponse, ChapterCreate, ChapterUpdate, ChapterResponse, LessonCreate, LessonUpdate, LessonResponse
+from app.schemas.course import CourseCreate, CourseUpdate, CourseResponse, CourseListResponse, ModuleCreate, ModuleUpdate, ModuleResponse, ChapterCreate, ChapterUpdate, ChapterResponse, LessonCreate, LessonUpdate, LessonResponse
 from app.schemas.assessment import QuestionCreate, QuestionResponse, CodingChallengeCreate, CodingChallengeResponse
 
 router = APIRouter()
@@ -328,7 +328,7 @@ async def update_course(
     *,
     db: AsyncSession = Depends(deps.get_db),
     course_id: int,
-    course_in: CourseCreate,
+    course_in: CourseUpdate,
     current_user: User = Depends(deps.get_current_creator_user)
 ) -> Any:
     """Update a course."""
@@ -339,12 +339,18 @@ async def update_course(
     if course.instructor_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to edit this course")
         
-    course.title = course_in.title
-    course.slug = course_in.slug
-    course.description = course_in.description
-    course.thumbnail_url = course_in.thumbnail_url
-    course.difficulty = course_in.difficulty_level
-    course.is_published = course_in.is_published
+    if course_in.title is not None:
+        course.title = course_in.title
+    if course_in.slug is not None:
+        course.slug = course_in.slug
+    if course_in.description is not None:
+        course.description = course_in.description
+    if course_in.thumbnail_url is not None:
+        course.thumbnail_url = course_in.thumbnail_url
+    if course_in.difficulty_level is not None:
+        course.difficulty = course_in.difficulty_level
+    if course_in.is_published is not None:
+        course.is_published = course_in.is_published
     
     await db.commit()
     await db.refresh(course)
