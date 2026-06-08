@@ -116,4 +116,11 @@ async def enroll_course(
     await db.commit()
     await db.refresh(new_enrollment)
     
-    return new_enrollment
+    return {
+        "id": new_enrollment.id,
+        "course_id": new_enrollment.course_id,
+        "user_id": new_enrollment.user_id,
+        "enrolled_at": new_enrollment.enrolled_at,
+        "status": "in_progress",
+        "progress_percentage": 0.0
+    }

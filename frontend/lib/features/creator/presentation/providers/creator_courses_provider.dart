@@ -1,13 +1,32 @@
+import '../../../course/domain/entities/course.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
 
-class CreatorCoursesNotifier extends Notifier<AsyncValue<void>> {
+class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
   Dio get _dio => ref.read(dioProvider);
 
   @override
-  AsyncValue<void> build() {
-    return const AsyncValue.data(null);
+  AsyncValue<List<Course>> build() {
+    fetchCourses();
+    return const AsyncValue.loading();
+  }
+
+  
+  Future<void> fetchCourses() async {
+    state = const AsyncValue.loading();
+    try {
+      final response = await _dio.get('/creator/courses');
+      if (response.statusCode == 200) {
+        final List data = response.data;
+        final courses = data.map((e) => Course.fromJson(e)).toList();
+        state = AsyncValue.data(courses);
+      } else {
+        state = AsyncValue.error('Failed to load courses', StackTrace.current);
+      }
+    } catch (e, stack) {
+      state = AsyncValue.error(e.toString(), stack);
+    }
   }
 
   Future<int?> createCourse(String title, String description, String difficulty) async {
@@ -21,7 +40,7 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<void>> {
         'difficulty_level': difficulty,
         'is_published': false,
       });
-      state = const AsyncValue.data(null);
+      fetchCourses();
       return response.data['id'];
     } catch (e, stack) {
       state = AsyncValue.error(e.toString(), stack);
@@ -37,7 +56,7 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<void>> {
         'description': description,
         'order_index': 1,
       });
-      state = const AsyncValue.data(null);
+      fetchCourses();
       return response.data['id'];
     } catch (e, stack) {
       state = AsyncValue.error(e.toString(), stack);
@@ -53,7 +72,7 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<void>> {
         'description': description,
         'order_index': 1,
       });
-      state = const AsyncValue.data(null);
+      fetchCourses();
       return response.data['id'];
     } catch (e, stack) {
       state = AsyncValue.error(e.toString(), stack);
@@ -71,7 +90,7 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<void>> {
         'order_index': 1,
         'is_premium': false,
       });
-      state = const AsyncValue.data(null);
+      fetchCourses();
       return response.data['id'];
     } catch (e, stack) {
       state = AsyncValue.error(e.toString(), stack);
@@ -92,15 +111,31 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<void>> {
           'options': q['options'] ?? [],
         });
       }
-      state = const AsyncValue.data(null);
+      fetchCourses();
       return true;
     } catch (e, stack) {
       state = AsyncValue.error(e.toString(), stack);
       return false;
     }
   }
+
+  Future<Map<String, dynamic>?> generateCourseWithAI(String prompt, String model) async {
+    state = const AsyncValue.loading();
+    try {
+      final response = await _dio.post('/creator/ai/generate', data: {
+        'prompt': prompt,
+        'model': model,
+      });
+      state = const AsyncValue.data([]); // reset to avoid showing loading, but fetchCourses will overwrite it eventually
+      fetchCourses(); // to refetch courses
+      return response.data;
+    } catch (e, stack) {
+      state = AsyncValue.error(e.toString(), stack);
+      return null;
+    }
+  }
 }
 
-final creatorCoursesProvider = NotifierProvider<CreatorCoursesNotifier, AsyncValue<void>>(() {
+final creatorCoursesProvider = NotifierProvider<CreatorCoursesNotifier, AsyncValue<List<Course>>>(() {
   return CreatorCoursesNotifier();
 });

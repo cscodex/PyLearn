@@ -7,10 +7,28 @@ from app.api import deps
 from app.models.user import User
 from app.models.course import Course, Module, Chapter, Lesson
 from app.models.assessment import Question, QuestionOption, CodingChallenge, TestCase
-from app.schemas.course import CourseCreate, CourseResponse, ModuleCreate, ModuleResponse, ChapterCreate, ChapterResponse, LessonCreate, LessonResponse
+from app.schemas.course import CourseCreate, CourseResponse, CourseListResponse, ModuleCreate, ModuleResponse, ChapterCreate, ChapterResponse, LessonCreate, LessonResponse
 from app.schemas.assessment import QuestionCreate, QuestionResponse, CodingChallengeCreate, CodingChallengeResponse
 
 router = APIRouter()
+
+
+@router.get("/courses", response_model=List[CourseListResponse])
+async def list_creator_courses(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    """
+    Retrieve courses created by the current creator.
+    """
+    result = await db.execute(
+        select(Course)
+        .filter(Course.instructor_id == current_user.id)
+        .offset(skip).limit(limit)
+    )
+    return result.scalars().all()
 
 @router.post("/courses", response_model=CourseResponse)
 async def create_course(

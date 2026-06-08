@@ -42,3 +42,8 @@ class UserAdminUpdate(CamelCaseBaseModel):
     email: Optional[str] = None
     full_name: Optional[str] = None
     role: Optional[str] = None
+class AdminUserCreate(CamelCaseBaseModel):
+    email: str
+    full_name: str
+    password: str
+    role: str

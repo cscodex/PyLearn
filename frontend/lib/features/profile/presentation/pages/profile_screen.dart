@@ -13,6 +13,8 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final profileAsync = ref.watch(profileProvider);
+    final authState = ref.watch(authProvider);
+    final role = authState.user?.role ?? 'student';
 
     return Scaffold(
       appBar: AppBar(
@@ -61,49 +63,99 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 32),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Total XP',
-                        value: '${user.xp}',
-                        icon: Icons.star,
-                        color: Colors.amber,
+                if (role == 'student') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          title: 'Total XP',
+                          value: '${user.xp}',
+                          icon: Icons.star,
+                          color: Colors.amber,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: _StatCard(
-                        title: 'Day Streak',
-                        value: '${user.streakDays}',
-                        icon: Icons.local_fire_department,
-                        color: Colors.orange,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _StatCard(
+                          title: 'Day Streak',
+                          value: '${user.streakDays}',
+                          icon: Icons.local_fire_department,
+                          color: Colors.orange,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.emoji_events),
-                  title: const Text('Badges & Achievements'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Achievements coming soon!')),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.history),
-                  title: const Text('Learning History'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('History coming soon!')),
-                    );
-                  },
-                ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.emoji_events),
+                    title: const Text('Badges & Achievements'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Achievements coming soon!')),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.history),
+                    title: const Text('Learning History'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('History coming soon!')),
+                      );
+                    },
+                  ),
+                ] else if (role == 'creator') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          title: 'Role',
+                          value: 'Creator',
+                          icon: Icons.edit_document,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.analytics),
+                    title: const Text('Creator Analytics'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Analytics coming soon!')),
+                      );
+                    },
+                  ),
+                ] else if (role == 'admin') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          title: 'Role',
+                          value: 'Admin',
+                          icon: Icons.admin_panel_settings,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.security_outlined),
+                    title: const Text('Security Logs'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      context.push('/security-logs');
+                    },
+                  ),
+                ],
               ],
             ),
           );

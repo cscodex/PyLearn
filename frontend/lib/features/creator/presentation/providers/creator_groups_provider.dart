@@ -175,6 +175,18 @@ class CreatorGroupsNotifier extends Notifier<AsyncValue<List<CreatorGroup>>> {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getGroupMembers(int groupId) async {
+    try {
+      final response = await _dio.get('/creator/groups/$groupId/users');
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
 }
 
 final creatorGroupsProvider = NotifierProvider<CreatorGroupsNotifier, AsyncValue<List<CreatorGroup>>>(() {

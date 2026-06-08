@@ -134,6 +134,31 @@ class AdminUsersNotifier extends Notifier<AsyncValue<List<AdminUser>>> {
       // Handle error
     }
   }
+
+  Future<void> createUser(String email, String fullName, String password, String role) async {
+    try {
+      final response = await _dio.post(
+        '/admin/users',
+        data: {
+          'email': email,
+          'full_name': fullName,
+          'password': password,
+          'role': role,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final newUser = AdminUser.fromJson(response.data);
+        if (state.hasValue) {
+          final users = state.value!;
+          state = AsyncValue.data([...users, newUser]);
+        } else {
+          state = AsyncValue.data([newUser]);
+        }
+      }
+    } catch (e) {
+      throw Exception('Failed to create user: $e');
+    }
+  }
 }
 
 final adminUsersProvider = NotifierProvider<AdminUsersNotifier, AsyncValue<List<AdminUser>>>(() {

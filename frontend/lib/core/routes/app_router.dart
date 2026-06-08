@@ -11,6 +11,7 @@ import '../../features/course/presentation/pages/course_detail_screen.dart';
 import '../../features/course/presentation/pages/ide_screen.dart';
 import '../../features/course/presentation/pages/quiz_screen.dart';
 import '../../features/profile/presentation/pages/settings_screen.dart';
+import '../../features/profile/presentation/pages/security_logs_screen.dart';
 import '../../features/creator/presentation/pages/group_management_screen.dart';
 import '../../features/creator/presentation/pages/quiz_builder_screen.dart';
 import '../../features/creator/presentation/pages/creator_enrollment_tracking_screen.dart';
@@ -64,6 +65,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/security-logs',
+        builder: (context, state) => const SecurityLogsScreen(),
       ),
       GoRoute(
         path: '/creator/groups',

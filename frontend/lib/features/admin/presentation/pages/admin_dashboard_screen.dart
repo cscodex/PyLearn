@@ -44,67 +44,155 @@ class AdminDashboardScreen extends ConsumerWidget {
     final usersAsync = ref.watch(adminUsersProvider);
     final theme = Theme.of(context);
 
-    return usersAsync.when(
-      data: (users) {
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: users.length,
-          separatorBuilder: (context, index) => const Divider(),
-          itemBuilder: (context, index) {
-            final user = users[index];
-            return ListTile(
-              leading: CircleAvatar(
-                backgroundColor: user.isActive ? Colors.green.shade100 : Colors.red.shade100,
-                child: Icon(
-                  user.isActive ? Icons.person : Icons.block,
-                  color: user.isActive ? Colors.green : Colors.red,
+    return Scaffold(
+      body: usersAsync.when(
+        data: (users) {
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: users.length,
+            separatorBuilder: (context, index) => const Divider(),
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: user.isActive ? Colors.green.shade100 : Colors.red.shade100,
+                  child: Icon(
+                    user.isActive ? Icons.person : Icons.block,
+                    color: user.isActive ? Colors.green : Colors.red,
+                  ),
                 ),
-              ),
-              title: Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('${user.email} • Role: ${user.role}'),
-              trailing: user.role == 'admin' ? null : PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'block') {
-                    ref.read(adminUsersProvider.notifier).toggleBlockStatus(user.id, user.isActive);
-                  } else if (value == 'delete') {
-                    _showDeleteDialog(context, ref, user);
-                  } else if (value == 'edit') {
-                    _showEditDialog(context, ref, user);
+                title: Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('${user.email} • Role: ${user.role}'),
+                trailing: user.role == 'admin' ? null : PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'block') {
+                      ref.read(adminUsersProvider.notifier).toggleBlockStatus(user.id, user.isActive);
+                    } else if (value == 'delete') {
+                      _showDeleteDialog(context, ref, user);
+                    } else if (value == 'edit') {
+                      _showEditDialog(context, ref, user);
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'edit',
+                      child: ListTile(
+                        leading: Icon(Icons.edit, size: 20),
+                        title: Text('Edit'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'block',
+                      child: ListTile(
+                        leading: Icon(user.isActive ? Icons.block : Icons.check_circle_outline, size: 20),
+                        title: Text(user.isActive ? 'Block' : 'Unblock'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: ListTile(
+                        leading: Icon(Icons.delete, color: Colors.red, size: 20),
+                        title: Text('Delete', style: TextStyle(color: Colors.red)),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('Error: $e')),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showCreateUserDialog(context, ref),
+        icon: const Icon(Icons.person_add),
+        label: const Text('Add User'),
+      ),
+    );
+  }
+
+  void _showCreateUserDialog(BuildContext context, WidgetRef ref) {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+    String selectedRole = 'student';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Create New User'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Full Name'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Temporary Password',
+                    helperText: 'Share this password securely with the user.',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedRole,
+                  decoration: const InputDecoration(labelText: 'Role'),
+                  items: const [
+                    DropdownMenuItem(value: 'student', child: Text('Student')),
+                    DropdownMenuItem(value: 'creator', child: Text('Creator')),
+                    DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => selectedRole = value);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await ref.read(adminUsersProvider.notifier).createUser(
+                    emailController.text,
+                    nameController.text,
+                    passwordController.text,
+                    selectedRole,
+                  );
+                  if (context.mounted) Navigator.pop(context);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error creating user: $e')),
+                    );
                   }
-                },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'edit',
-                    child: ListTile(
-                      leading: Icon(Icons.edit, size: 20),
-                      title: Text('Edit'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  PopupMenuItem<String>(
-                    value: 'block',
-                    child: ListTile(
-                      leading: Icon(user.isActive ? Icons.block : Icons.check_circle_outline, size: 20),
-                      title: Text(user.isActive ? 'Block' : 'Unblock'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'delete',
-                    child: ListTile(
-                      leading: Icon(Icons.delete, color: Colors.red, size: 20),
-                      title: Text('Delete', style: TextStyle(color: Colors.red)),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text('Error: $e')),
+                }
+              },
+              child: const Text('Create User'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

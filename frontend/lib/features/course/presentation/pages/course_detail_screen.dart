@@ -70,31 +70,55 @@ class CourseDetailScreen extends ConsumerWidget {
                           const SizedBox(height: 32),
                           SizedBox(
                             width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final repo = ref.read(courseRepositoryProvider);
-                                final success = await repo.enrollInCourse(courseId);
-                                if (context.mounted) {
-                                  if (success) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Successfully enrolled!')),
-                                    );
-                                    ref.refresh(enrolledCoursesProvider);
-                                    ref.refresh(courseDetailsProvider(courseId));
-                                    if (course.modules.isNotEmpty && course.modules.first.chapters.isNotEmpty) {
-                                      context.push('/ide/${course.modules.first.chapters.first.id}');
+                            child: Consumer(
+                              builder: (context, ref, child) {
+                                final isEnrolled = ref.watch(enrolledCoursesProvider).maybeWhen(
+                                  data: (courses) => courses.any((c) => c.id == courseId),
+                                  orElse: () => false,
+                                );
+
+                                return ElevatedButton(
+                                  onPressed: () async {
+                                    if (isEnrolled) {
+                                      // Continue course
+                                      if (course.modules.isNotEmpty && course.modules.first.chapters.isNotEmpty) {
+                                        context.push('/ide/${course.modules.first.chapters.first.id}');
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Course has no content yet.')),
+                                        );
+                                      }
+                                      return;
                                     }
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Failed to enroll or already enrolled.')),
-                                    );
-                                  }
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                              child: const Text('Enroll Now', style: TextStyle(fontSize: 18)),
+
+                                    final repo = ref.read(courseRepositoryProvider);
+                                    final success = await repo.enrollInCourse(courseId);
+                                    if (context.mounted) {
+                                      if (success) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Successfully enrolled!')),
+                                        );
+                                        ref.refresh(enrolledCoursesProvider);
+                                        ref.refresh(courseDetailsProvider(courseId));
+                                        if (course.modules.isNotEmpty && course.modules.first.chapters.isNotEmpty) {
+                                          context.push('/ide/${course.modules.first.chapters.first.id}');
+                                        }
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Failed to enroll or already enrolled.')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                  ),
+                                  child: Text(
+                                    isEnrolled ? 'Continue Course' : 'Enroll Now', 
+                                    style: const TextStyle(fontSize: 18)
+                                  ),
+                                );
+                              }
                             ),
                           ),
                           const SizedBox(height: 32),

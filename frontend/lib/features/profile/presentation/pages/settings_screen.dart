@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/theme_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDarkMode = themeMode == ThemeMode.dark || 
+                      (themeMode == ThemeMode.system && Theme.of(context).brightness == Brightness.dark);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
@@ -50,8 +55,10 @@ class SettingsScreen extends ConsumerWidget {
           SwitchListTile(
             secondary: const Icon(Icons.dark_mode_outlined),
             title: const Text('Dark Mode'),
-            value: Theme.of(context).brightness == Brightness.dark,
-            onChanged: (val) {},
+            value: isDarkMode,
+            onChanged: (val) {
+              ref.read(themeModeProvider.notifier).setTheme(val ? ThemeMode.dark : ThemeMode.light);
+            },
           ),
           SwitchListTile(
             secondary: const Icon(Icons.notifications_none),
