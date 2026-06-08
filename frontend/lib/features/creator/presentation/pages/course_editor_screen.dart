@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 import '../providers/creator_courses_provider.dart';
+import '../../../course/presentation/providers/course_provider.dart';
 import '../../../course/domain/entities/course.dart';
 import '../../../../core/widgets/loading_overlay.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -19,18 +20,25 @@ class CourseEditorScreen extends ConsumerStatefulWidget {
 class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(creatorCoursesProvider);
-    final isLoading = state.isLoading;
-    final courseList = state.value ?? [];
-    final course = courseList.where((c) => c.id == widget.courseId).firstOrNull;
+    // Watch the full course details instead of the basic list
+    final courseAsync = ref.watch(courseDetailsProvider(widget.courseId));
+    final isLoading = courseAsync.isLoading;
+    final course = courseAsync.valueOrNull;
     final authState = ref.watch(authProvider);
     final role = authState.user?.role ?? 'student';
     final isAdmin = role == 'admin';
 
-    if (course == null && !isLoading) {
+    if (course == null && !isLoading && !courseAsync.hasError) {
       return Scaffold(
         appBar: AppBar(title: const Text('Edit Course')),
         body: const Center(child: Text('Course not found.')),
+      );
+    }
+    
+    if (courseAsync.hasError) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Edit Course')),
+        body: Center(child: Text('Error: ${courseAsync.error}')),
       );
     }
 
@@ -44,7 +52,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
               TextButton.icon(
                 onPressed: () {
                   // Navigate to course player preview
-                  context.push('/learn/course/${course.id}');
+                  context.push('/courses/${course.id}');
                 },
                 icon: const Icon(Icons.play_circle_fill, color: Colors.white),
                 label: const Text('Preview Course', style: TextStyle(color: Colors.white)),
@@ -207,17 +215,30 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 
   // --- Dialogs & Actions ---
 
+  Future<void> _refreshCourse() async {
+    ref.invalidate(courseDetailsProvider(widget.courseId));
+  }
+
   Future<void> _deleteModule(int id) async {
     final confirm = await _showConfirmDialog('Delete Module', 'Are you sure you want to delete this module and all its contents?');
-    if (confirm) await ref.read(creatorCoursesProvider.notifier).deleteModule(id);
+    if (confirm) {
+      await ref.read(creatorCoursesProvider.notifier).deleteModule(id);
+      await _refreshCourse();
+    }
   }
   Future<void> _deleteChapter(int id) async {
     final confirm = await _showConfirmDialog('Delete Chapter', 'Are you sure you want to delete this chapter and all its lessons?');
-    if (confirm) await ref.read(creatorCoursesProvider.notifier).deleteChapter(id);
+    if (confirm) {
+      await ref.read(creatorCoursesProvider.notifier).deleteChapter(id);
+      await _refreshCourse();
+    }
   }
   Future<void> _deleteLesson(int id) async {
     final confirm = await _showConfirmDialog('Delete Lesson', 'Are you sure you want to delete this lesson?');
-    if (confirm) await ref.read(creatorCoursesProvider.notifier).deleteLesson(id);
+    if (confirm) {
+      await ref.read(creatorCoursesProvider.notifier).deleteLesson(id);
+      await _refreshCourse();
+    }
   }
 
   Future<bool> _showConfirmDialog(String title, String content) async {
@@ -255,9 +276,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              ref.read(creatorCoursesProvider.notifier).createModule(widget.courseId, titleCtrl.text, descCtrl.text);
-              Navigator.pop(ctx);
+            onPressed: () async {
+              await ref.read(creatorCoursesProvider.notifier).createModule(widget.courseId, titleCtrl.text, descCtrl.text);
+              await _refreshCourse();
+              if (mounted) Navigator.pop(ctx);
             },
             child: const Text('Add'),
           )
@@ -283,9 +305,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              ref.read(creatorCoursesProvider.notifier).updateModule(module.id, {'title': titleCtrl.text, 'description': descCtrl.text});
-              Navigator.pop(ctx);
+            onPressed: () async {
+              await ref.read(creatorCoursesProvider.notifier).updateModule(module.id, {'title': titleCtrl.text, 'description': descCtrl.text});
+              await _refreshCourse();
+              if (mounted) Navigator.pop(ctx);
             },
             child: const Text('Save'),
           )
@@ -311,9 +334,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              ref.read(creatorCoursesProvider.notifier).createChapter(moduleId, titleCtrl.text, descCtrl.text);
-              Navigator.pop(ctx);
+            onPressed: () async {
+              await ref.read(creatorCoursesProvider.notifier).createChapter(moduleId, titleCtrl.text, descCtrl.text);
+              await _refreshCourse();
+              if (mounted) Navigator.pop(ctx);
             },
             child: const Text('Add'),
           )
@@ -339,9 +363,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              ref.read(creatorCoursesProvider.notifier).updateChapter(chapter.id, {'title': titleCtrl.text, 'description': descCtrl.text});
-              Navigator.pop(ctx);
+            onPressed: () async {
+              await ref.read(creatorCoursesProvider.notifier).updateChapter(chapter.id, {'title': titleCtrl.text, 'description': descCtrl.text});
+              await _refreshCourse();
+              if (mounted) Navigator.pop(ctx);
             },
             child: const Text('Save'),
           )
@@ -380,9 +405,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ElevatedButton(
               onPressed: () async {
                 final id = await ref.read(creatorCoursesProvider.notifier).createLesson(chapterId, titleCtrl.text, type, {});
+                await _refreshCourse();
                 if (mounted) Navigator.pop(ctx);
                 if (type == 'quiz' && id != null) {
-                  context.push('/creator/quiz_builder/$id');
+                  if (mounted) context.push('/creator/quiz_builder/$id');
                 }
               },
               child: const Text('Add'),
@@ -422,13 +448,14 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
-              onPressed: () {
-                ref.read(creatorCoursesProvider.notifier).updateCourse(course.id, {
+              onPressed: () async {
+                await ref.read(creatorCoursesProvider.notifier).updateCourse(course.id, {
                   'title': titleCtrl.text,
                   'description': descCtrl.text,
                   'difficulty_level': diff,
                 });
-                Navigator.pop(ctx);
+                await _refreshCourse();
+                if (mounted) Navigator.pop(ctx);
               },
               child: const Text('Save'),
             )
@@ -441,7 +468,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
   void _showEditLessonDialog(Lesson lesson) {
     // Open a full screen dialog for editing lesson content with Markdown preview
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => _LessonEditorDialog(lesson: lesson, ref: ref),
+      builder: (context) => _LessonEditorDialog(lesson: lesson, ref: ref, courseId: widget.courseId),
       fullscreenDialog: true,
     ));
   }
@@ -450,7 +477,8 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
 class _LessonEditorDialog extends StatefulWidget {
   final Lesson lesson;
   final WidgetRef ref;
-  const _LessonEditorDialog({required this.lesson, required this.ref});
+  final int courseId;
+  const _LessonEditorDialog({required this.lesson, required this.ref, required this.courseId});
 
   @override
   State<_LessonEditorDialog> createState() => _LessonEditorDialogState();
@@ -492,6 +520,7 @@ class _LessonEditorDialogState extends State<_LessonEditorDialog> {
                 data['content_body'] = {'text': _contentCtrl.text};
               }
               await widget.ref.read(creatorCoursesProvider.notifier).updateLesson(widget.lesson.id, data);
+              widget.ref.invalidate(courseDetailsProvider(widget.courseId));
               if (mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lesson saved')));
