@@ -23,7 +23,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     // Watch the full course details instead of the basic list
     final courseAsync = ref.watch(courseDetailsProvider(widget.courseId));
     final isLoading = courseAsync.isLoading;
-    final course = courseAsync.valueOrNull;
+    final course = courseAsync.value;
     final authState = ref.watch(authProvider);
     final role = authState.user?.role ?? 'student';
     final isAdmin = role == 'admin';
