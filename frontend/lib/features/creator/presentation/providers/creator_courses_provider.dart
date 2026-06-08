@@ -48,6 +48,22 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
     }
   }
 
+  Future<bool> updateCourse(int id, Map<String, dynamic> data) async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+      final response = await ref.read(dioProvider).put('/creator/courses/$id', data: data);
+      
+      // Update the local list
+      final updatedCourse = response.data;
+      final updatedList = state.courses.map((c) => c['id'] == id ? updatedCourse : c).toList();
+      state = state.copyWith(courses: updatedList, isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: e.toString(), isLoading: false);
+      return false;
+    }
+  }
+
   Future<int?> createModule(int courseId, String title, String description) async {
     state = const AsyncValue.loading();
     try {

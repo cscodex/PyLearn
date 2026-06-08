@@ -219,141 +219,154 @@ class _CurriculumBuilderScreenState extends ConsumerState<CurriculumBuilderScree
           ),
           Expanded(
             child: Stepper(
-              type: StepperType.horizontal,
+              type: StepperType.vertical,
+              physics: const ClampingScrollPhysics(),
               currentStep: _step,
-        onStepTapped: (step) {
-           if (step < _step) setState(() => _step = step);
-        },
-        onStepContinue: () {
-          if (_step == 0) _createCourse();
-          else if (_step == 1) _createModule();
-          else if (_step == 2) _createChapter();
-          else if (_step == 3) _createLesson();
-        },
-        onStepCancel: () {
-          if (_step > 0) {
-            setState(() => _step -= 1);
-          } else {
-            context.pop();
-          }
-        },
-        steps: [
-          Step(
-            title: const Text('Create Course'),
-            isActive: _step >= 0,
-            state: _step > 0 ? StepState.complete : StepState.editing,
-            content: Column(
-              children: [
-                TextField(
-                  controller: _courseTitleCtrl,
-                  decoration: const InputDecoration(labelText: 'Course Title'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _courseDescCtrl,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _difficulty,
-                  decoration: const InputDecoration(labelText: 'Difficulty'),
-                  items: const [
-                    DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
-                    DropdownMenuItem(value: 'intermediate', child: Text('Intermediate')),
-                    DropdownMenuItem(value: 'advanced', child: Text('Advanced')),
-                  ],
-                  onChanged: (val) => setState(() => _difficulty = val!),
-                ),
-              ],
-            ),
-          ),
-          Step(
-            title: const Text('Add Module'),
-            isActive: _step >= 1,
-            state: _step > 1 ? StepState.complete : StepState.editing,
-            content: Column(
-              children: [
-                TextField(
-                  controller: _moduleTitleCtrl,
-                  decoration: const InputDecoration(labelText: 'Module Title'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _moduleDescCtrl,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  maxLines: 2,
-                ),
-              ],
-            ),
-          ),
-          Step(
-            title: const Text('Add Chapter'),
-            isActive: _step >= 2,
-            state: _step > 2 ? StepState.complete : StepState.editing,
-            content: Column(
-              children: [
-                TextField(
-                  controller: _chapterTitleCtrl,
-                  decoration: const InputDecoration(labelText: 'Chapter Title'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _chapterDescCtrl,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  maxLines: 2,
-                ),
-              ],
-            ),
-          ),
-          Step(
-            title: const Text('Create Lesson'),
-            isActive: _step >= 3,
-            state: _step > 3 ? StepState.complete : StepState.editing,
-            content: Column(
-              children: [
-                TextField(
-                  controller: _lessonTitleCtrl,
-                  decoration: const InputDecoration(labelText: 'Lesson Title'),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _lessonType,
-                  decoration: const InputDecoration(labelText: 'Lesson Type'),
-                  items: const [
-                    DropdownMenuItem(value: 'video', child: Text('Video Lesson')),
-                    DropdownMenuItem(value: 'text', child: Text('Text/Reading Lesson')),
-                    DropdownMenuItem(value: 'quiz', child: Text('Quiz Assessment')),
-                  ],
-                  onChanged: (val) => setState(() => _lessonType = val!),
-                ),
-                const SizedBox(height: 16),
-                if (_lessonType == 'video')
-                  TextField(
-                    controller: _lessonVideoUrlCtrl,
-                    decoration: const InputDecoration(labelText: 'Video URL (YouTube/Vimeo)'),
+              onStepContinue: () {
+                if (_step == 0) _createCourse();
+                else if (_step == 1) _createModule();
+                else if (_step == 2) _createChapter();
+                else if (_step == 3) _createLesson();
+              },
+              onStepCancel: () {
+                if (_step > 0) {
+                  setState(() => _step -= 1);
+                }
+              },
+              steps: [
+                Step(
+                  title: const Text('Create Course'),
+                  isActive: _step >= 0,
+                  content: Column(
+                    children: [
+                      if (_generatedModules.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('AI Generated Curriculum Preview:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                              const SizedBox(height: 8),
+                              ..._generatedModules.map((m) => Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text('• ${m['title']}', style: const TextStyle(fontSize: 13)),
+                              )),
+                              const SizedBox(height: 8),
+                              const Text('Complete the steps below to save your course.', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                            ],
+                          ),
+                        ),
+                      TextField(
+                        controller: _courseTitleCtrl,
+                        decoration: const InputDecoration(labelText: 'Course Title'),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _courseDescCtrl,
+                        decoration: const InputDecoration(labelText: 'Description'),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _difficulty,
+                        decoration: const InputDecoration(labelText: 'Difficulty'),
+                        items: const [
+                          DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
+                          DropdownMenuItem(value: 'intermediate', child: Text('Intermediate')),
+                          DropdownMenuItem(value: 'advanced', child: Text('Advanced')),
+                        ],
+                        onChanged: (v) => setState(() => _difficulty = v!),
+                      ),
+                    ],
                   ),
-                if (_lessonType == 'text' || _lessonType == 'video') ...[
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _lessonContentCtrl,
-                    decoration: const InputDecoration(labelText: 'Content Body (Markdown)'),
-                    maxLines: 5,
+                ),
+                Step(
+                  title: const Text('Add Module'),
+                  isActive: _step >= 1,
+                  content: Column(
+                    children: [
+                      TextField(
+                        controller: _moduleTitleCtrl,
+                        decoration: const InputDecoration(labelText: 'Module Title'),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _moduleDescCtrl,
+                        decoration: const InputDecoration(labelText: 'Description'),
+                        maxLines: 2,
+                      ),
+                    ],
                   ),
-                ],
-                if (_lessonType == 'quiz')
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('You will be redirected to the Quiz Builder after creating this lesson to add questions.', style: TextStyle(color: Colors.blue)),
+                ),
+                Step(
+                  title: const Text('Add Chapter'),
+                  isActive: _step >= 2,
+                  content: Column(
+                    children: [
+                      TextField(
+                        controller: _chapterTitleCtrl,
+                        decoration: const InputDecoration(labelText: 'Chapter Title'),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _chapterDescCtrl,
+                        decoration: const InputDecoration(labelText: 'Description'),
+                        maxLines: 2,
+                      ),
+                    ],
                   ),
+                ),
+                Step(
+                  title: const Text('Add Lesson'),
+                  isActive: _step >= 3,
+                  content: Column(
+                    children: [
+                      TextField(
+                        controller: _lessonTitleCtrl,
+                        decoration: const InputDecoration(labelText: 'Lesson Title'),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _lessonType,
+                        decoration: const InputDecoration(labelText: 'Content Type'),
+                        items: const [
+                          DropdownMenuItem(value: 'video', child: Text('Video Lesson')),
+                          DropdownMenuItem(value: 'text', child: Text('Text/Article')),
+                          DropdownMenuItem(value: 'quiz', child: Text('Interactive Quiz')),
+                          DropdownMenuItem(value: 'code_challenge', child: Text('Code Challenge')),
+                        ],
+                        onChanged: (v) => setState(() => _lessonType = v!),
+                      ),
+                      const SizedBox(height: 16),
+                      if (_lessonType == 'video') ...[
+                        TextField(
+                          controller: _lessonContentCtrl,
+                          decoration: const InputDecoration(labelText: 'Video Description / Summary'),
+                          maxLines: 3,
+                        ),
+                      ] else if (_lessonType == 'text') ...[
+                        TextField(
+                          controller: _lessonContentCtrl,
+                          decoration: const InputDecoration(labelText: 'Article Content (Markdown)'),
+                          maxLines: 6,
+                        ),
+                      ] else ...[
+                        const Text('You will be redirected to the specific builder for this content type after saving the lesson structure.'),
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
-      ), // closes Stepper
-    ), // closes Expanded
-  ], // closes Column children
-), // closes Column
+          ), // closes Expanded
+        ], // closes Column children
+      ), // closes Column
       ), // closes Scaffold
     ); // closes LoadingOverlay
   }

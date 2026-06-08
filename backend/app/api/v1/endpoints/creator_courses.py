@@ -21,13 +21,13 @@ async def list_creator_courses(
     current_user: User = Depends(deps.get_current_creator_user)
 ) -> Any:
     """
-    Retrieve courses created by the current creator.
+    Retrieve courses. Admins see all, creators see their own.
     """
-    result = await db.execute(
-        select(Course)
-        .filter(Course.instructor_id == current_user.id)
-        .offset(skip).limit(limit)
-    )
+    query = select(Course)
+    if current_user.role != "admin":
+        query = query.filter(Course.instructor_id == current_user.id)
+    
+    result = await db.execute(query.offset(skip).limit(limit))
     return result.scalars().all()
 
 @router.post("/courses", response_model=CourseResponse)
@@ -322,3 +322,42 @@ async def list_creator_enrollments(
         ))
         
     return response
+
+@router.put("/courses/{course_id}", response_model=CourseResponse)
+async def update_course(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    course_id: int,
+    course_in: CourseCreate,
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    """Update a course."""
+    result = await db.execute(select(Course).filter(Course.id == course_id))
+    course = result.scalars().first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.instructor_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to edit this course")
+        
+    course.title = course_in.title
+    course.slug = course_in.slug
+    course.description = course_in.description
+    course.thumbnail_url = course_in.thumbnail_url
+    course.difficulty = course_in.difficulty_level
+    course.is_published = course_in.is_published
+    
+    await db.commit()
+    await db.refresh(course)
+    
+    return {
+        "id": course.id,
+        "title": course.title,
+        "slug": course.slug,
+        "description": course.description,
+        "thumbnail_url": course.thumbnail_url,
+        "difficulty_level": course.difficulty,
+        "is_published": course.is_published,
+        "created_at": course.created_at,
+        "updated_at": course.updated_at,
+        "modules": []
+    }
