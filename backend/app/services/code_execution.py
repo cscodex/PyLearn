@@ -76,7 +76,7 @@ def _run_in_process(code: str, standard_input: str) -> Dict[str, Any]:
         buf.seek(0)
         img_base64 = base64.b64encode(buf.read()).decode('utf-8')
         plots_list.append(img_base64)
-        plt.clf()
+        plt.close()
 
     # Provide a safe globals dictionary
     safe_globals = {
