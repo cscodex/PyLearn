@@ -43,6 +43,7 @@ class RefreshTokenRequest(CamelCaseBaseModel):
 class UserUpdate(CamelCaseBaseModel):
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
+    profile_picture_url: Optional[str] = None
 
 class PasswordUpdate(CamelCaseBaseModel):
     current_password: str

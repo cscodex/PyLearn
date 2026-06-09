@@ -33,6 +33,15 @@ class ProfileNotifier extends AsyncNotifier<UserStats> {
     await future;
   }
 
+  Future<void> updateProfilePicture(String url) async {
+    final dio = ref.read(dioProvider);
+    await dio.put('/auth/profile', data: {
+      'profilePictureUrl': url,
+    });
+    ref.invalidateSelf();
+    await future;
+  }
+
   Future<void> updatePassword(String currentPassword, String newPassword) async {
     final dio = ref.read(dioProvider);
     await dio.put('/auth/password', data: {

@@ -13,11 +13,15 @@ import '../../features/course/presentation/pages/ide_screen.dart';
 import '../../features/course/presentation/pages/quiz_screen.dart';
 import '../../features/profile/presentation/pages/settings_screen.dart';
 import '../../features/profile/presentation/pages/security_logs_screen.dart';
+import '../../features/profile/presentation/pages/profile_screen.dart';
+import '../../features/profile/presentation/pages/badges_achievements_screen.dart';
+import '../../features/profile/presentation/pages/learning_history_screen.dart';
 import '../../features/creator/presentation/pages/group_management_screen.dart';
 import '../../features/creator/presentation/pages/quiz_builder_screen.dart';
 import '../../features/creator/presentation/pages/creator_enrollment_tracking_screen.dart';
 import '../../features/creator/presentation/pages/curriculum_builder_screen.dart';
 import '../../features/creator/presentation/pages/course_editor_screen.dart';
+import '../../features/creator/presentation/pages/code_challenge_builder_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -77,6 +81,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SettingsScreen(),
       ),
       GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/ide',
+        builder: (context, state) => const IdeScreen(),
+      ),
+      GoRoute(
+        path: '/profile/badges',
+        builder: (context, state) => const BadgesAchievementsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/history',
+        builder: (context, state) => const LearningHistoryScreen(),
+      ),
+      GoRoute(
         path: '/security-logs',
         builder: (context, state) => const SecurityLogsScreen(),
       ),
@@ -97,10 +117,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/creator/quiz_builder/:lessonId',
-        builder: (context, state) {
-          final id = int.parse(state.pathParameters['lessonId']!);
-          return QuizBuilderScreen(lessonId: id);
-        },
+        builder: (context, state) => QuizBuilderScreen(lessonId: int.parse(state.pathParameters['lessonId']!)),
+      ),
+      GoRoute(
+        path: '/creator/code_builder/:lessonId',
+        builder: (context, state) => CodeChallengeBuilderScreen(lessonId: int.parse(state.pathParameters['lessonId']!)),
       ),
       GoRoute(
         path: '/creator/enrollments',

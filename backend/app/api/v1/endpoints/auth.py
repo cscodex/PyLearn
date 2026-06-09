@@ -147,6 +147,8 @@ async def update_profile(
         if res.scalars().first():
             raise HTTPException(status_code=400, detail="Email already taken")
         current_user.email = user_in.email
+    if user_in.profile_picture_url:
+        current_user.profile_picture_url = user_in.profile_picture_url
         
     db.add(current_user)
     await db.commit()

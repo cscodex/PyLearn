@@ -23,6 +23,7 @@ class User(Base):
     profile = relationship("UserProfile", back_populates="user", uselist=False)
     oauth_accounts = relationship("OAuthAccount", back_populates="user")
     refresh_tokens = relationship("RefreshToken", back_populates="user")
+    saved_programs = relationship("SavedProgram", back_populates="user")
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"

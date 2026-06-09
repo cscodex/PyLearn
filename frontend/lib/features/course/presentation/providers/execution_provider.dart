@@ -14,7 +14,7 @@ class ExecutionService {
 
   Future<Map<String, dynamic>> executeCode(String code, {int? lessonId}) async {
     try {
-      final response = await dio.post('/execute', data: {
+      final response = await dio.post('/execute/', data: {
         'code': code,
         if (lessonId != null) 'lesson_id': lessonId,
       });

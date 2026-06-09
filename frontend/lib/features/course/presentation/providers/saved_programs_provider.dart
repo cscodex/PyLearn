@@ -1,0 +1,71 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/network/dio_client.dart';
+
+class SavedProgram {
+  final int id;
+  final String title;
+  final String code;
+  final String? language;
+  final String createdAt;
+
+  SavedProgram({
+    required this.id,
+    required this.title,
+    required this.code,
+    this.language,
+    required this.createdAt,
+  });
+
+  factory SavedProgram.fromJson(Map<String, dynamic> json) {
+    return SavedProgram(
+      id: json['id'],
+      title: json['title'],
+      code: json['code'],
+      language: json['language'],
+      createdAt: json['created_at'],
+    );
+  }
+}
+
+final savedProgramsProvider = FutureProvider.autoDispose<List<SavedProgram>>((ref) async {
+  final dio = ref.watch(dioProvider);
+  final response = await dio.get('/saved-programs/');
+  return (response.data as List)
+      .map((item) => SavedProgram.fromJson(item))
+      .toList();
+});
+
+class SavedProgramsService {
+  final Ref ref;
+
+  SavedProgramsService(this.ref);
+
+  Future<bool> saveProgram(String title, String code) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/saved-programs/', data: {
+        'title': title,
+        'code': code,
+      });
+      ref.invalidate(savedProgramsProvider);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> deleteProgram(int id) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.delete('/saved-programs/$id');
+      ref.invalidate(savedProgramsProvider);
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
+final savedProgramsServiceProvider = Provider<SavedProgramsService>((ref) {
+  return SavedProgramsService(ref);
+});

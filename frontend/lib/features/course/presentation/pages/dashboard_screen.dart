@@ -59,6 +59,7 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
+      floatingActionButton: const _BreathingFab(),
     );
   }
 
@@ -199,6 +200,60 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BreathingFab extends StatefulWidget {
+  const _BreathingFab();
+
+  @override
+  State<_BreathingFab> createState() => _BreathingFabState();
+}
+
+class _BreathingFabState extends State<_BreathingFab> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    
+    _animation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _animation.value,
+          child: FloatingActionButton.extended(
+            onPressed: () {
+              if (context.mounted) context.push('/ide');
+            },
+            icon: const Icon(Icons.code),
+            label: const Text('IDE'),
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: theme.colorScheme.onPrimary,
+            elevation: 4 * _animation.value,
+          ),
+        );
+      },
     );
   }
 }

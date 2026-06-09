@@ -104,6 +104,8 @@ class _CurriculumBuilderScreenState extends ConsumerState<CurriculumBuilderScree
       );
       if (_lessonType == 'quiz') {
         context.push('/creator/quiz_builder/$id');
+      } else if (_lessonType == 'code_challenge') {
+        context.push('/creator/code_builder/$id');
       } else {
         context.pop(); // Go back to dashboard
       }
@@ -339,7 +341,7 @@ class _CurriculumBuilderScreenState extends ConsumerState<CurriculumBuilderScree
                           DropdownMenuItem(value: 'video', child: Text('Video Lesson')),
                           DropdownMenuItem(value: 'text', child: Text('Text/Article')),
                           DropdownMenuItem(value: 'quiz', child: Text('Interactive Quiz')),
-                          DropdownMenuItem(value: 'code_challenge', child: Text('Code Challenge')),
+                          DropdownMenuItem(value: 'code_challenge', child: Text('Practical Hands-on (Code Challenge)')),
                         ],
                         onChanged: (v) => setState(() => _lessonType = v!),
                       ),

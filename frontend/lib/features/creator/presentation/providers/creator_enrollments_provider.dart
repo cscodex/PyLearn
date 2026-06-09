@@ -28,6 +28,25 @@ class CreatorEnrollmentsNotifier extends Notifier<AsyncValue<List<AdminEnrollmen
       state = AsyncValue.error(e.toString(), stack);
     }
   }
+
+  Future<bool> assignCourseToStudent(String userId, int courseId) async {
+    try {
+      final response = await _dio.post(
+        '/creator/enrollments/assign',
+        data: {
+          'user_id': userId,
+          'course_id': courseId,
+        },
+      );
+      if (response.statusCode == 200) {
+        fetchEnrollments();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
 }
 
 final creatorEnrollmentsProvider = NotifierProvider<CreatorEnrollmentsNotifier, AsyncValue<List<AdminEnrollment>>>(() {

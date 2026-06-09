@@ -1,9 +1,23 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
+class QuestionOptionResponse(BaseModel):
+    id: int
+    option_text: str
+
+class QuestionResponse(BaseModel):
+    id: int
+    question_text: str
+    question_type: str
+    options: List[QuestionOptionResponse]
+
+class QuizFetchResponse(BaseModel):
+    lesson_id: int
+    questions: List[QuestionResponse]
+
 class QuizSubmissionRequest(BaseModel):
     lesson_id: int
-    answers: dict[str, str]  # question_id -> selected_option
+    answers: dict[int, int]  # question_id -> option_id
 
 class QuizSubmissionResponse(BaseModel):
     score: int

@@ -6,7 +6,7 @@ import '../providers/course_provider.dart';
 import '../../data/repositories/course_repository.dart';
 import 'ide_screen.dart';
 import 'quiz_screen.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_html/flutter_html.dart';
 
 class CoursePlayerScreen extends ConsumerStatefulWidget {
   final int courseId;
@@ -96,22 +96,63 @@ class _CoursePlayerScreenState extends ConsumerState<CoursePlayerScreen> {
                 itemCount: course.modules.length,
                 itemBuilder: (context, mIndex) {
                   final module = course.modules[mIndex];
+                  int moduleTotalLessons = 0;
+                  int moduleCompletedLessons = 0;
+                  for (final c in module.chapters) {
+                    moduleTotalLessons += c.lessons.length;
+                    for (final l in c.lessons) {
+                      if (course.completedLessonIds.contains(l.id)) {
+                        moduleCompletedLessons++;
+                      }
+                    }
+                  }
+                  double moduleProgress = moduleTotalLessons > 0 ? moduleCompletedLessons / moduleTotalLessons : 0.0;
+
                   return ExpansionTile(
                     initiallyExpanded: true,
                     title: Text(module.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        LinearProgressIndicator(value: moduleProgress, backgroundColor: Colors.grey.shade300),
+                        const SizedBox(height: 4),
+                        Text('${(moduleProgress * 100).toInt()}% Complete', style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
                     children: module.chapters.map((chapter) {
+                      int chapterTotalLessons = chapter.lessons.length;
+                      int chapterCompletedLessons = chapter.lessons.where((l) => course.completedLessonIds.contains(l.id)).length;
+                      double chapterProgress = chapterTotalLessons > 0 ? chapterCompletedLessons / chapterTotalLessons : 0.0;
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                            child: Text(
-                              chapter.title,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      chapter.title,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${(chapterProgress * 100).toInt()}%',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                LinearProgressIndicator(value: chapterProgress, backgroundColor: Colors.grey.shade300),
+                              ],
                             ),
                           ),
                           ...chapter.lessons.map((lesson) {
@@ -125,6 +166,7 @@ class _CoursePlayerScreenState extends ConsumerState<CoursePlayerScreen> {
                                 size: 20,
                               ),
                               title: Text(lesson.title, style: TextStyle(fontSize: 14, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal)),
+                              trailing: Text(isCompleted ? '100%' : '0%', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                               selected: isCurrent,
                               selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
                               onTap: () {
@@ -164,13 +206,13 @@ class _CoursePlayerScreenState extends ConsumerState<CoursePlayerScreen> {
                 Text(lesson.title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 24),
                 Expanded(
-                  child: Markdown(
+                  child: Html(
                     data: lesson.contentBody?['text'] ?? 'No content available.',
-                    styleSheet: MarkdownStyleSheet(
-                      h1: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                      h2: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      p: const TextStyle(fontSize: 16, height: 1.6),
-                    ),
+                    style: {
+                      "h1": Style(fontSize: FontSize(24.0), fontWeight: FontWeight.bold),
+                      "h2": Style(fontSize: FontSize(20.0), fontWeight: FontWeight.bold),
+                      "p": Style(fontSize: FontSize(16.0), lineHeight: LineHeight(1.6)),
+                    },
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -188,7 +230,12 @@ class _CoursePlayerScreenState extends ConsumerState<CoursePlayerScreen> {
         ),
       );
     } else if (lesson.contentType == 'code_challenge') {
-      return IdeScreen(lessonId: lesson.id, inline: true, onComplete: () => _markCompleteAndNext(course, lesson));
+      return IdeScreen(
+        lessonId: lesson.id, 
+        inline: true, 
+        contentBody: lesson.contentBody,
+        onComplete: () => _markCompleteAndNext(course, lesson)
+      );
     } else if (lesson.contentType == 'quiz') {
       return QuizScreen(lessonId: lesson.id, inline: true, onComplete: () => _markCompleteAndNext(course, lesson));
     }

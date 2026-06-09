@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/creator_enrollments_provider.dart';
 import 'package:intl/intl.dart';
+import '../widgets/assign_course_dialog.dart';
 
 class CreatorEnrollmentTrackingScreen extends ConsumerWidget {
   const CreatorEnrollmentTrackingScreen({super.key});
@@ -57,6 +58,16 @@ class CreatorEnrollmentTrackingScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, s) => Center(child: Text('Error: $e')),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (ctx) => const AssignCourseDialog(),
+          );
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Assign Course'),
       ),
     );
   }

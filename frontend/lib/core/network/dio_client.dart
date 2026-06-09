@@ -7,7 +7,7 @@ final dioProvider = Provider<Dio>((ref) {
   // flutter run --dart-define=API_URL=https://your-render-url.onrender.com/api/v1
   const baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://127.0.0.1:8000/api/v1', // Fallback to localhost
+    defaultValue: 'https://pythontutor-api.onrender.com/api/v1', // Fallback to Render
   );
 
   final dio = Dio(
@@ -17,6 +17,7 @@ final dioProvider = Provider<Dio>((ref) {
       receiveTimeout: const Duration(seconds: 10),
       headers: {
         'Content-Type': 'application/json',
+        'Bypass-Tunnel-Reminder': 'true',
       },
     ),
   );

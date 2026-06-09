@@ -340,6 +340,32 @@ async def list_creator_enrollments(
         
     return response
 
+from pydantic import BaseModel
+import uuid
+
+class AssignStudentRequest(BaseModel):
+    user_id: uuid.UUID
+    course_id: int
+
+@router.post("/enrollments/assign", response_model=dict)
+async def assign_course_to_student(
+    assign_req: AssignStudentRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    """Assign a course directly to a student."""
+    course_res = await db.execute(select(Course).filter(Course.id == assign_req.course_id, Course.instructor_id == current_user.id))
+    if not course_res.scalars().first():
+        raise HTTPException(status_code=404, detail="Course not found or access denied")
+        
+    enroll_res = await db.execute(select(Enrollment).filter(Enrollment.user_id == assign_req.user_id, Enrollment.course_id == assign_req.course_id))
+    if enroll_res.scalars().first():
+        return {"status": "success", "message": "Student already enrolled"}
+        
+    db.add(Enrollment(user_id=assign_req.user_id, course_id=assign_req.course_id, progress_percentage=0.0))
+    await db.commit()
+    return {"status": "success"}
+
 @router.put("/courses/{course_id}", response_model=CourseResponse)
 async def update_course(
     *,

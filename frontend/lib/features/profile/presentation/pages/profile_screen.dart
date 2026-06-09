@@ -31,24 +31,47 @@ class ProfileScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                  child: user.profilePictureUrl != null
-                      ? ClipOval(
-                          child: Image.network(
-                            user.profilePictureUrl!,
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : Text(
-                          user.fullName[0].toUpperCase(),
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
+                GestureDetector(
+                  onTap: () {
+                    _showAvatarPicker(context, ref, user.id);
+                  },
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          _showAvatarPicker(context, ref, user.id);
+                        },
+                        child: CircleAvatar(
+                          radius: 50,
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          child: user.profilePictureUrl != null
+                              ? ClipOval(
+                                  child: Image.network(
+                                    user.profilePictureUrl!,
+                                    width: 100,
+                                    height: 100,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Text(
+                                  user.fullName[0].toUpperCase(),
+                                  style: theme.textTheme.headlineLarge?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
                         ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.edit, size: 20, color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -89,23 +112,27 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 32),
                   const Divider(),
                   ListTile(
-                    leading: const Icon(Icons.emoji_events),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2), shape: BoxShape.circle),
+                      child: const Icon(Icons.emoji_events, color: Colors.amber),
+                    ),
                     title: const Text('Badges & Achievements'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Achievements coming soon!')),
-                      );
+                      if (context.mounted) context.push('/profile/badges');
                     },
                   ),
                   ListTile(
-                    leading: const Icon(Icons.history),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), shape: BoxShape.circle),
+                      child: const Icon(Icons.history, color: Colors.blue),
+                    ),
                     title: const Text('Learning History'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('History coming soon!')),
-                      );
+                      if (context.mounted) context.push('/profile/history');
                     },
                   ),
                 ] else if (role == 'creator') ...[
@@ -163,7 +190,7 @@ class ProfileScreen extends ConsumerWidget {
                   title: const Text('Edit Profile'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
-                    _showEditProfileDialog(context, ref, user.fullName, user.email);
+                    showEditProfileDialog(context, ref, user.fullName, user.email);
                   },
                 ),
                 ListTile(
@@ -171,7 +198,7 @@ class ProfileScreen extends ConsumerWidget {
                   title: const Text('Change Password'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
-                    _showChangePasswordDialog(context, ref);
+                    showChangePasswordDialog(context, ref);
                   },
                 ),
               ],
@@ -181,6 +208,52 @@ class ProfileScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
+    );
+  }
+  void _showAvatarPicker(BuildContext context, WidgetRef ref, String userId) {
+    final seeds = ['Felix', 'Aneka', 'Oliver', 'Jasper', 'Sophie', 'Max', 'Luna', 'Milo'];
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          height: 350,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose an Avatar',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: seeds.length,
+                  itemBuilder: (context, index) {
+                    final seed = seeds[index];
+                    final url = 'https://api.dicebear.com/7.x/bottts/png?seed=$seed';
+                    return GestureDetector(
+                      onTap: () {
+                        ref.read(profileProvider.notifier).updateProfilePicture(url);
+                        Navigator.pop(context);
+                      },
+                      child: CircleAvatar(
+                        backgroundColor: Colors.grey.shade200,
+                        backgroundImage: NetworkImage(url),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -232,7 +305,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-void _showEditProfileDialog(BuildContext context, WidgetRef ref, String currentName, String currentEmail) {
+void showEditProfileDialog(BuildContext context, WidgetRef ref, String currentName, String currentEmail) {
   final nameCtrl = TextEditingController(text: currentName);
   final emailCtrl = TextEditingController(text: currentEmail);
   
@@ -283,9 +356,10 @@ void _showEditProfileDialog(BuildContext context, WidgetRef ref, String currentN
   );
 }
 
-void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
+void showChangePasswordDialog(BuildContext context, WidgetRef ref) {
   final oldPassCtrl = TextEditingController();
   final newPassCtrl = TextEditingController();
+  final confirmPassCtrl = TextEditingController();
 
   showDialog(
     context: context,
@@ -305,12 +379,34 @@ void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
             obscureText: true,
             decoration: const InputDecoration(labelText: 'New Password'),
           ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: confirmPassCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Confirm New Password'),
+          ),
         ],
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
         ElevatedButton(
           onPressed: () async {
+            final newPass = newPassCtrl.text;
+            final confirmPass = confirmPassCtrl.text;
+            
+            if (newPass != confirmPass) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match.')));
+              return;
+            }
+            if (newPass.length < 8) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password must be at least 8 characters long.')));
+              return;
+            }
+            if (!RegExp(r'[a-zA-Z]').hasMatch(newPass) || !RegExp(r'[0-9]').hasMatch(newPass) || !RegExp(r'[^a-zA-Z0-9]').hasMatch(newPass)) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password must contain a letter, a number, and a special character.')));
+              return;
+            }
+
             try {
               await ref.read(profileProvider.notifier).updatePassword(oldPassCtrl.text, newPassCtrl.text);
               if (context.mounted) {

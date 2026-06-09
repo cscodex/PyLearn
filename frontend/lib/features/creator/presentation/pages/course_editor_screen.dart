@@ -202,6 +202,8 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
               onPressed: () {
                 if (lesson.contentType == 'quiz') {
                   if (mounted) context.push('/creator/quiz_builder/${lesson.id}');
+                } else if (lesson.contentType == 'code_challenge') {
+                  if (mounted) context.push('/creator/code_builder/${lesson.id}');
                 } else {
                   _showEditLessonDialog(lesson);
                 }
@@ -424,6 +426,8 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                 if (mounted) Navigator.pop(ctx);
                 if (type == 'quiz' && id != null) {
                   if (mounted) context.push('/creator/quiz_builder/$id');
+                } else if (type == 'code_challenge' && id != null) {
+                  if (mounted) context.push('/creator/code_builder/$id');
                 }
               },
               child: const Text('Add'),

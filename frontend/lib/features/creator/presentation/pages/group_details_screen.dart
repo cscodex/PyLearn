@@ -74,7 +74,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> with Si
   Widget build(BuildContext context) {
     final isLoadingGroups = ref.watch(creatorGroupsProvider).isLoading;
     final isLoadingCourses = ref.watch(creatorCoursesProvider).isLoading;
-    final isLoading = isLoadingGroups || isLoadingCourses || _isSearching || _isLoadingMembers || _isLoadingAssignments;
+    final isLoading = isLoadingGroups || isLoadingCourses;
 
     return LoadingOverlay(
       isLoading: isLoading,
@@ -297,7 +297,9 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> with Si
             ),
             const Divider(),
             Expanded(
-              child: coursesAsync.when(
+              child: _isLoadingAssignments 
+                  ? const Center(child: CircularProgressIndicator()) 
+                  : coursesAsync.when(
                 data: (courses) {
                   if (courses.isEmpty) {
                     return const Center(child: Text('You have not created any courses yet.'));

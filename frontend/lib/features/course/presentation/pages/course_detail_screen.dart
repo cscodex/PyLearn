@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_html/flutter_html.dart';
 import '../providers/course_provider.dart';
 import '../../data/repositories/course_repository.dart';
 
@@ -67,6 +68,36 @@ class CourseDetailScreen extends ConsumerWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final enrolledCoursesAsync = ref.watch(enrolledCoursesProvider);
+                              return enrolledCoursesAsync.maybeWhen(
+                                data: (courses) {
+                                  final isEnrolled = courses.any((c) => c.id == courseId);
+                                  if (!isEnrolled) return const SizedBox.shrink();
+                                  
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        LinearProgressIndicator(
+                                          value: course.progressPercentage / 100.0,
+                                          backgroundColor: Colors.grey.shade300,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${course.progressPercentage.toStringAsFixed(0)}% Complete',
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                orElse: () => const SizedBox.shrink(),
+                              );
+                            },
+                          ),
                           if (course.description != null) ...[
                             const SizedBox(height: 16),
                             Text(
@@ -124,7 +155,9 @@ class CourseDetailScreen extends ConsumerWidget {
                                         padding: const EdgeInsets.symmetric(vertical: 16),
                                       ),
                                       child: Text(
-                                        isEnrolled ? 'Continue Course' : 'Enroll Now', 
+                                        isEnrolled 
+                                            ? (course.progressPercentage >= 100 ? 'Course Completed' : 'Continue Course') 
+                                            : 'Enroll Now', 
                                         style: const TextStyle(fontSize: 18)
                                       ),
                                     );
@@ -183,14 +216,31 @@ class CourseDetailScreen extends ConsumerWidget {
                           return ExpansionTile(
                             title: Text(chapter.title),
                             children: chapter.lessons.map((lesson) {
-                              return ListTile(
-                                contentPadding: const EdgeInsets.only(left: 48, right: 16),
+                              return ExpansionTile(
+                                tilePadding: const EdgeInsets.only(left: 48, right: 16),
                                 leading: const Icon(Icons.play_circle_outline, size: 20),
                                 title: Text(lesson.title, style: const TextStyle(fontSize: 14)),
-                                trailing: const Icon(Icons.chevron_right, size: 16),
-                                onTap: () {
-                                  context.push('/courses/$courseId/learn/${lesson.id}');
-                                },
+                                subtitle: Text(lesson.contentType.toUpperCase(), style: const TextStyle(fontSize: 12)),
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(16.0),
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Html(data: lesson.contentBody?['text'] ?? '<i>No preview available.</i>'),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            context.push('/courses/$courseId/learn/${lesson.id}');
+                                          },
+                                          child: const Text('Start Lesson'),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                ],
                               );
                             }).toList(),
                           );
