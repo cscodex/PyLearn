@@ -47,12 +47,13 @@ class SavedProgramsService {
 
   SavedProgramsService(this.ref);
 
-  Future<SavedProgram?> saveProgram(String title, String code) async {
+  Future<SavedProgram?> saveProgram(String title, String code, {int? lessonId}) async {
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.post('/saved-programs/', data: {
         'title': title,
         'code': code,
+        if (lessonId != null) 'lesson_id': lessonId,
       });
       ref.invalidate(savedProgramsProvider);
       return SavedProgram.fromJson(response.data);
@@ -61,12 +62,13 @@ class SavedProgramsService {
     }
   }
 
-  Future<bool> updateProgram(int id, String title, String code) async {
+  Future<bool> updateProgram(int id, String title, String code, {int? lessonId}) async {
     try {
       final dio = ref.read(dioProvider);
       await dio.put('/saved-programs/$id', data: {
         'title': title,
         'code': code,
+        if (lessonId != null) 'lesson_id': lessonId,
       });
       ref.invalidate(savedProgramsProvider);
       return true;
@@ -96,6 +98,16 @@ class SavedProgramsService {
           .toList();
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<SavedProgram?> getProgramForLesson(int lessonId) async {
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get('/saved-programs/lesson/$lessonId');
+      return SavedProgram.fromJson(response.data);
+    } catch (e) {
+      return null;
     }
   }
 }

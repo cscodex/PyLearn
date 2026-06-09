@@ -15,6 +15,7 @@ class SavedProgram(Base):
     title = Column(String(100), nullable=False)
     code = Column(Text, nullable=False)
     language = Column(String(50), default="python")
+    lesson_id = Column(Integer, ForeignKey("lessons.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

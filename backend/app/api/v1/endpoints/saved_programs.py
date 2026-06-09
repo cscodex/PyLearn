@@ -61,6 +61,20 @@ async def read_student_programs(
         
     return programs
 
+@router.get("/lesson/{lesson_id}", response_model=SavedProgramSchema)
+async def read_saved_program_for_lesson(
+    lesson_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Retrieve a saved program for a specific lesson and current user."""
+    stmt = select(SavedProgram).where(SavedProgram.user_id == current_user.id, SavedProgram.lesson_id == lesson_id)
+    result = await db.execute(stmt)
+    program = result.scalars().first()
+    if not program:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Saved program not found for this lesson")
+    return program
+
 @router.post("/", response_model=SavedProgramSchema)
 async def create_saved_program(
     *,

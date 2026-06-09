@@ -6,6 +6,7 @@ class SavedProgramBase(BaseModel):
     title: str = Field(..., max_length=100)
     code: str = Field(..., max_length=65536) # 64KB
     language: Optional[str] = "python"
+    lesson_id: Optional[int] = None
 
 class SavedProgramCreate(SavedProgramBase):
     pass

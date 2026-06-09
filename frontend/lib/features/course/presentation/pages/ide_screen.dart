@@ -83,6 +83,28 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
         title: widget.initialSavedProgram!.title,
         savedId: widget.initialSavedProgram!.id,
       );
+    } else if (widget.lessonId != null && widget.inline) {
+      // It's a lesson, we should fetch it.
+      _addNewTab(initialCode: "Loading saved program...");
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final service = ref.read(savedProgramsServiceProvider);
+        final savedProgram = await service.getProgramForLesson(widget.lessonId!);
+        if (mounted) {
+          if (savedProgram != null) {
+            setState(() {
+              _tabs[0].title = savedProgram.title;
+              _tabs[0].savedId = savedProgram.id;
+              _tabs[0].controller.text = savedProgram.code;
+              _tabs[0].lastSavedCode = savedProgram.code;
+            });
+          } else {
+            setState(() {
+              _tabs[0].controller.text = widget.contentBody?['starter_code'] ?? '';
+              _tabs[0].lastSavedCode = _tabs[0].controller.text;
+            });
+          }
+        }
+      });
     } else {
       _addNewTab(initialCode: widget.contentBody?['starter_code']);
     }
@@ -203,7 +225,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     
     // If it's already a saved program, update it silently
     if (_currentTab.savedId != null) {
-      final success = await service.updateProgram(_currentTab.savedId!, _currentTab.title, _currentTab.controller.text);
+      final success = await service.updateProgram(_currentTab.savedId!, _currentTab.title, _currentTab.controller.text, lessonId: widget.lessonId);
       if (mounted) {
         if (success) {
           setState(() {
@@ -217,29 +239,34 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
       return;
     }
 
-    // Otherwise, prompt for a name
-    final titleController = TextEditingController(text: _currentTab.title);
-    final title = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Save Program'),
-        content: TextField(
-          controller: titleController,
-          decoration: const InputDecoration(labelText: 'Program Title'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, titleController.text),
-            child: const Text('Save'),
+    // Otherwise, determine title
+    String? title;
+    if (widget.inline && widget.lessonId != null) {
+      title = 'Lesson ${widget.lessonId} Program';
+    } else {
+      final titleController = TextEditingController(text: _currentTab.title);
+      title = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Save Program'),
+          content: TextField(
+            controller: titleController,
+            decoration: const InputDecoration(labelText: 'Program Title'),
+            autofocus: true,
           ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, titleController.text),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+    }
 
     if (title != null && title.isNotEmpty) {
-      final savedProgram = await service.saveProgram(title, _currentTab.controller.text);
+      final savedProgram = await service.saveProgram(title, _currentTab.controller.text, lessonId: widget.lessonId);
       if (mounted) {
         if (savedProgram != null) {
           setState(() {
@@ -581,7 +608,10 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                   const SizedBox(width: 16),
                   if (widget.onComplete != null)
                     FilledButton(
-                      onPressed: widget.onComplete,
+                      onPressed: () async {
+                        await _saveProgram();
+                        widget.onComplete!();
+                      },
                       child: const Text('Mark Complete & Continue'),
                     ),
                 ],
