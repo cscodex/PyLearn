@@ -97,7 +97,7 @@ def generate_certificate_image(
 
     # --- Concepts ---
     if concepts:
-        display_concepts = concepts[:6]
+        display_concepts = concepts[:5]
         spacing = width / (len(display_concepts) + 1)
         
         try:
