@@ -68,7 +68,18 @@ def generate_certificate_image(
     title_font = _get_font("Roboto-Bold.ttf", 70)
     subtitle_font = _get_font("Roboto-Bold.ttf", 25)
     name_font = _get_font("GreatVibes-Regular.ttf", 100)
-    course_font = _get_font("Roboto-Bold.ttf", 70)
+    
+    # Dynamic course font size
+    max_course_width = 1300
+    course_font_size = 70
+    course_font = _get_font("Roboto-Bold.ttf", course_font_size)
+    while course_font_size > 20:
+        bbox = draw.textbbox((0, 0), course_name, font=course_font)
+        if (bbox[2] - bbox[0]) <= max_course_width:
+            break
+        course_font_size -= 2
+        course_font = _get_font("Roboto-Bold.ttf", course_font_size)
+        
     stat_font = _get_font("Roboto-Regular.ttf", 20)
     stat_bold_font = _get_font("Roboto-Bold.ttf", 20)
     signature_font = _get_font("GreatVibes-Regular.ttf", 60)
