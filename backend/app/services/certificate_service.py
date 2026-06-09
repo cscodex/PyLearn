@@ -47,8 +47,8 @@ def generate_certificate_image(
 
     bg_color = "#FDFCFB" # Match the off-white center background
 
-    # 1. Blank out Original Logo
-    draw.rectangle([60, 60, 270, 270], fill=bg_color)
+    # 1. Blank out Original Logo (Top Left)
+    draw.rectangle([50, 50, 300, 300], fill=bg_color)
     
     # Paste App Logo
     try:
@@ -60,16 +60,17 @@ def generate_certificate_image(
         print(f"Could not load app logo: {e}")
 
     # 2. Blank out Name, Course, Stats
-    draw.rectangle([350, 310, 1150, 420], fill=bg_color)  # Name
-    draw.rectangle([300, 435, 1200, 505], fill=bg_color)  # Course
-    draw.rectangle([130, 715, 1080, 755], fill=bg_color)  # Stats
+    # Expand bounding boxes significantly to ensure total coverage
+    draw.rectangle([200, 280, 1300, 430], fill=bg_color)  # Name
+    draw.rectangle([150, 430, 1350, 520], fill=bg_color)  # Course
+    draw.rectangle([100, 690, 1350, 770], fill=bg_color)  # Stats
 
     # 3. Blank out Concepts Row
-    draw.rectangle([100, 520, 1390, 660], fill=bg_color)
+    draw.rectangle([80, 520, 1400, 680], fill=bg_color)
 
     # 4. Blank out Signatures
-    draw.rectangle([130, 800, 390, 930], fill=bg_color)   # Left signature (Instructor)
-    draw.rectangle([1000, 800, 1360, 930], fill=bg_color) # Right signature (Director)
+    draw.rectangle([100, 790, 500, 950], fill=bg_color)   # Left signature (Instructor)
+    draw.rectangle([900, 790, 1400, 950], fill=bg_color) # Right signature (Director)
 
     # Fonts
     name_font = _get_font("GreatVibes-Regular.ttf", 100)
