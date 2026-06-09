@@ -53,12 +53,16 @@ async def execute_python_code(code: str, timeout_seconds: int = 5, standard_inpu
             # 3. Execute code in a subprocess
             # Note: In a true production environment, this should run inside a Docker container
             # or a gVisor sandbox. For MVP, we use subprocess with timeout.
+            env = os.environ.copy()
+            env["MPLBACKEND"] = "Agg"
+            
             process = subprocess.run(
                 ['python3', temp_path],
                 input=standard_input,
                 capture_output=True,
                 text=True,
-                timeout=timeout_seconds
+                timeout=timeout_seconds,
+                env=env
             )
             
             execution_time = (time.time() - start_time) * 1000  # in ms
