@@ -173,7 +173,9 @@ async def complete_lesson(
     """Mark a lesson as complete and update course progress."""
     from app.models.progress import UserLessonProgress, Enrollment
     from app.models.course import Course, Module, Chapter, Lesson
-    from sqlalchemy import func
+    from app.models.user import User
+    from app.models.assessment import Question, QuizSubmission
+    from sqlalchemy import func, cast, Integer
     import datetime
     
     # Check enrollment
@@ -242,10 +244,70 @@ async def complete_lesson(
             from app.services.certificate_service import generate_and_upload_certificate
             import uuid
             
-            # We need course name
+            # Get course with creator
             course_result = await db.execute(select(Course).filter_by(id=course_id))
             course = course_result.scalars().first()
             
+            # Get instructor name
+            instructor_name = "Instructor"
+            if course and course.instructor_id:
+                instructor_result = await db.execute(select(User).filter_by(id=course.instructor_id))
+                instructor = instructor_result.scalars().first()
+                if instructor:
+                    instructor_name = instructor.full_name
+            
+            # Get director/admin name
+            admin_result = await db.execute(select(User).filter_by(role="admin").order_by(User.id).limit(1))
+            admin = admin_result.scalars().first()
+            director_name = admin.full_name if admin else "Director"
+            
+            # Get Course Duration
+            duration_str = "40 Hours"
+            if course and course.estimated_hours:
+                hours = int(course.estimated_hours)
+                duration_str = f"{hours} Hours"
+                
+            # Get Lesson Concepts (up to 6)
+            lessons_result = await db.execute(
+                select(Lesson.title)
+                .join(Chapter, Lesson.chapter_id == Chapter.id)
+                .join(Module, Chapter.module_id == Module.id)
+                .filter(Module.course_id == course_id)
+                .order_by(Module.order_index, Chapter.order_index, Lesson.order_index)
+                .limit(6)
+            )
+            concepts = [title for title in lessons_result.scalars().all()]
+            
+            # Calculate Score and Grade
+            score_result = await db.execute(
+                select(func.avg(cast(QuizSubmission.is_correct, Integer)))
+                .join(Question, QuizSubmission.question_id == Question.id)
+                .join(Lesson, Question.lesson_id == Lesson.id)
+                .join(Chapter, Lesson.chapter_id == Chapter.id)
+                .join(Module, Chapter.module_id == Module.id)
+                .filter(Module.course_id == course_id)
+                .filter(QuizSubmission.user_id == current_user.id)
+            )
+            avg_score = score_result.scalar()
+            
+            score_str = "Completed"
+            grade_str = "-"
+            
+            if avg_score is not None:
+                score_pct = float(avg_score) * 100.0
+                score_str = f"{int(score_pct)}%"
+                
+                if score_pct >= 90:
+                    grade_str = "A+"
+                elif score_pct >= 80:
+                    grade_str = "A"
+                elif score_pct >= 70:
+                    grade_str = "B"
+                elif score_pct >= 60:
+                    grade_str = "C"
+                else:
+                    grade_str = "D"
+
             cert_id_str = str(uuid.uuid4())[:8].upper()
             
             # This should ideally be a background task to avoid blocking the request,
@@ -253,7 +315,13 @@ async def complete_lesson(
             secure_url = generate_and_upload_certificate(
                 student_name=current_user.full_name,
                 course_name=course.title if course else "Course",
-                certificate_id=cert_id_str
+                certificate_id=cert_id_str,
+                instructor_name=instructor_name,
+                director_name=director_name,
+                duration_str=duration_str,
+                score_str=score_str,
+                grade_str=grade_str,
+                concepts=concepts
             )
             
             new_cert = Certificate(
