@@ -17,7 +17,7 @@ async def execute_code(
 ) -> Any:
     """Execute python code securely."""
     
-    result = await execute_python_code(request.code)
+    result = await execute_python_code(request.code, standard_input=request.standard_input)
     
     # Add XP if successful
     xp_earned = 5 if result["is_success"] else 0

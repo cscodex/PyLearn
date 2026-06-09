@@ -41,17 +41,17 @@ class SavedProgramsService {
 
   SavedProgramsService(this.ref);
 
-  Future<bool> saveProgram(String title, String code) async {
+  Future<SavedProgram?> saveProgram(String title, String code) async {
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/saved-programs/', data: {
+      final response = await dio.post('/saved-programs/', data: {
         'title': title,
         'code': code,
       });
       ref.invalidate(savedProgramsProvider);
-      return true;
+      return SavedProgram.fromJson(response.data);
     } catch (e) {
-      return false;
+      return null;
     }
   }
 

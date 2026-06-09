@@ -12,10 +12,11 @@ class ExecutionService {
 
   ExecutionService(this.dio);
 
-  Future<Map<String, dynamic>> executeCode(String code, {int? lessonId}) async {
+  Future<Map<String, dynamic>> executeCode(String code, {int? lessonId, String? standardInput}) async {
     try {
       final response = await dio.post('/execute/', data: {
         'code': code,
+        if (standardInput != null) 'standard_input': standardInput,
         if (lessonId != null) 'lesson_id': lessonId,
       });
       return response.data;

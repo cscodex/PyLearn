@@ -3,6 +3,7 @@ from typing import Optional
 
 class CodeExecutionRequest(BaseModel):
     code: str
+    standard_input: Optional[str] = ""
     lesson_id: Optional[int] = None
 
 class CodeExecutionResponse(BaseModel):

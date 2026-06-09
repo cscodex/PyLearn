@@ -13,15 +13,17 @@ class ProgramTab {
   String title;
   int? savedId;
   final CodeController controller;
+  final TextEditingController inputController;
 
   ProgramTab({
     required this.title,
     this.savedId,
     required this.controller,
-  });
+  }) : inputController = TextEditingController();
 
   void dispose() {
     controller.dispose();
+    inputController.dispose();
   }
 }
 
@@ -135,6 +137,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     final result = await service.executeCode(
       _currentTab.controller.text, 
       lessonId: widget.lessonId,
+      standardInput: _currentTab.inputController.text,
     );
 
     if (!mounted) return;
@@ -192,14 +195,12 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     );
 
     if (title != null && title.isNotEmpty) {
-      final success = await service.saveProgram(title, _currentTab.controller.text);
+      final savedProgram = await service.saveProgram(title, _currentTab.controller.text);
       if (mounted) {
-        if (success) {
-          // Re-fetch to get the ID, or just mark it as saved and require a refresh to get the true ID.
-          // For immediate UX, we change the title but the user will need to reload to get the real DB ID.
-          // Alternatively, we can let it save.
+        if (savedProgram != null) {
           setState(() {
             _currentTab.title = title;
+            _currentTab.savedId = savedProgram.id;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Saved successfully!')),
@@ -411,11 +412,29 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
               )).toList(),
             ),
           ),
+          // Standard Input Area
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: theme.colorScheme.surface,
+            child: TextField(
+              controller: _currentTab.inputController,
+              decoration: const InputDecoration(
+                labelText: 'Standard Input (for input() function)',
+                labelStyle: TextStyle(fontSize: 12),
+                border: OutlineInputBorder(),
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              maxLines: 2,
+              minLines: 1,
+            ),
+          ),
           
           // Terminal Output
           Container(
             width: double.infinity,
-            height: 200,
+            height: 160,
             color: Colors.black,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

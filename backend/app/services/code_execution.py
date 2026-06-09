@@ -36,7 +36,7 @@ def check_code_security(code: str) -> None:
     visitor = SecurityNodeVisitor()
     visitor.visit(tree)
 
-async def execute_python_code(code: str, timeout_seconds: int = 5) -> Dict[str, Any]:
+async def execute_python_code(code: str, timeout_seconds: int = 5, standard_input: str = "") -> Dict[str, Any]:
     """Execute python code in a separate process with a timeout."""
     start_time = time.time()
     
@@ -45,18 +45,8 @@ async def execute_python_code(code: str, timeout_seconds: int = 5) -> Dict[str, 
         check_code_security(code)
         
         # 2. Write code to temp file
-        # Prepend a mock input() function to provide a helpful error message
-        mock_input_code = \"\"\"
-def __mock_input(prompt=""):
-    raise RuntimeError("Interactive input() is not supported in this IDE. Please assign values directly to variables (e.g., num1 = 5).")
-import builtins
-builtins.input = __mock_input
-
-\"\"\"
-        full_code = mock_input_code + code
-
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
-            temp_file.write(full_code)
+            temp_file.write(code)
             temp_path = temp_file.name
 
         try:
@@ -65,6 +55,7 @@ builtins.input = __mock_input
             # or a gVisor sandbox. For MVP, we use subprocess with timeout.
             process = subprocess.run(
                 ['python3', temp_path],
+                input=standard_input,
                 capture_output=True,
                 text=True,
                 timeout=timeout_seconds
