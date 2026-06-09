@@ -80,6 +80,18 @@ class CreatorDashboardScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => context.push('/creator/student-programs'),
+                          icon: const Icon(Icons.code),
+                          label: const Text('Student Programs'),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 32),
                   Text(
                     'My Courses',

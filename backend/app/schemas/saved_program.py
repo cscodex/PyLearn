@@ -25,3 +25,7 @@ class SavedProgramInDBBase(SavedProgramBase):
 
 class SavedProgram(SavedProgramInDBBase):
     pass
+
+class StudentProgramSchema(SavedProgram):
+    student_name: str
+    student_email: str

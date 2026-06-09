@@ -22,6 +22,8 @@ import '../../features/creator/presentation/pages/creator_enrollment_tracking_sc
 import '../../features/creator/presentation/pages/curriculum_builder_screen.dart';
 import '../../features/creator/presentation/pages/course_editor_screen.dart';
 import '../../features/creator/presentation/pages/code_challenge_builder_screen.dart';
+import '../../features/creator/presentation/pages/student_programs_screen.dart';
+import '../../features/course/presentation/providers/saved_programs_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -86,7 +88,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/ide',
-        builder: (context, state) => const IdeScreen(),
+        builder: (context, state) {
+          final program = state.extra as SavedProgram?;
+          return IdeScreen(initialSavedProgram: program);
+        },
       ),
       GoRoute(
         path: '/profile/badges',
@@ -126,6 +131,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/creator/enrollments',
         builder: (context, state) => const CreatorEnrollmentTrackingScreen(),
+      ),
+      GoRoute(
+        path: '/creator/student-programs',
+        builder: (context, state) => const StudentProgramsScreen(),
       ),
     ],
   );

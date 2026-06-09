@@ -8,6 +8,8 @@ class SavedProgram {
   final String code;
   final String? language;
   final String createdAt;
+  final String? studentName;
+  final String? studentEmail;
 
   SavedProgram({
     required this.id,
@@ -15,6 +17,8 @@ class SavedProgram {
     required this.code,
     this.language,
     required this.createdAt,
+    this.studentName,
+    this.studentEmail,
   });
 
   factory SavedProgram.fromJson(Map<String, dynamic> json) {
@@ -24,6 +28,8 @@ class SavedProgram {
       code: json['code'],
       language: json['language'],
       createdAt: json['created_at'],
+      studentName: json['student_name'],
+      studentEmail: json['student_email'],
     );
   }
 }
@@ -76,9 +82,28 @@ class SavedProgramsService {
       ref.invalidate(savedProgramsProvider);
     } catch (e) {
       // ignore
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  Future<List<SavedProgram>> getStudentPrograms() async {
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get('/saved-programs/students');
+      return (response.data as List)
+          .map((item) => SavedProgram.fromJson(item))
+          .toList();
+    } catch (e) {
+      return [];
     }
   }
 }
+
+final studentProgramsProvider = FutureProvider.autoDispose<List<SavedProgram>>((ref) async {
+  final service = ref.watch(savedProgramsServiceProvider);
+  return await service.getStudentPrograms();
+});
 
 final savedProgramsServiceProvider = Provider<SavedProgramsService>((ref) {
   return SavedProgramsService(ref);

@@ -7,7 +7,7 @@ from sqlalchemy import func
 from app.api import deps
 from app.models.user import User
 from app.models.saved_program import SavedProgram
-from app.schemas.saved_program import SavedProgram as SavedProgramSchema, SavedProgramCreate, SavedProgramUpdate
+from app.schemas.saved_program import SavedProgram as SavedProgramSchema, SavedProgramCreate, SavedProgramUpdate, StudentProgramSchema
 
 router = APIRouter()
 
@@ -22,6 +22,43 @@ async def read_saved_programs(
     stmt = select(SavedProgram).where(SavedProgram.user_id == current_user.id).order_by(SavedProgram.created_at.desc())
     result = await db.execute(stmt)
     programs = result.scalars().all()
+    return programs
+
+@router.get("/students", response_model=List[StudentProgramSchema])
+async def read_student_programs(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Retrieve all student programs for evaluation (Creators and Admins only)."""
+    if current_user.role not in ["admin", "creator"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    # Fetch programs with user details joined
+    stmt = (
+        select(SavedProgram, User)
+        .join(User, SavedProgram.user_id == User.id)
+        .where(User.role == 'student')
+        .order_by(SavedProgram.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    
+    programs = []
+    for program, user in result.all():
+        program_dict = {
+            "id": program.id,
+            "title": program.title,
+            "code": program.code,
+            "language": program.language,
+            "created_at": program.created_at,
+            "updated_at": program.updated_at,
+            "student_name": user.full_name,
+            "student_email": user.email,
+        }
+        programs.append(program_dict)
+        
     return programs
 
 @router.post("/", response_model=SavedProgramSchema)

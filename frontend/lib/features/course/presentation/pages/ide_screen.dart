@@ -14,12 +14,17 @@ class ProgramTab {
   int? savedId;
   final CodeController controller;
   final TextEditingController inputController;
+  String lastSavedCode;
 
   ProgramTab({
     required this.title,
     this.savedId,
     required this.controller,
-  }) : inputController = TextEditingController();
+    String? initialCode,
+  })  : inputController = TextEditingController(),
+        lastSavedCode = initialCode ?? '';
+
+  bool get isDirty => controller.text != lastSavedCode;
 
   void dispose() {
     controller.dispose();
@@ -32,8 +37,9 @@ class IdeScreen extends ConsumerStatefulWidget {
   final bool inline;
   final VoidCallback? onComplete;
   final Map<String, dynamic>? contentBody;
+  final SavedProgram? initialSavedProgram;
   
-  const IdeScreen({super.key, this.lessonId, this.inline = false, this.onComplete, this.contentBody});
+  const IdeScreen({super.key, this.lessonId, this.inline = false, this.onComplete, this.contentBody, this.initialSavedProgram});
 
   @override
   ConsumerState<IdeScreen> createState() => _IdeScreenState();
@@ -47,6 +53,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   String _output = '';
   bool _isSuccess = false;
   CodeFontSize _fontSize = CodeFontSize.medium;
+  double _terminalHeight = 250.0;
   int _programCounter = 1;
 
   double get _currentFontSize {
@@ -70,7 +77,15 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   @override
   void initState() {
     super.initState();
-    _addNewTab(initialCode: widget.contentBody?['starter_code']);
+    if (widget.initialSavedProgram != null) {
+      _addNewTab(
+        initialCode: widget.initialSavedProgram!.code,
+        title: widget.initialSavedProgram!.title,
+        savedId: widget.initialSavedProgram!.id,
+      );
+    } else {
+      _addNewTab(initialCode: widget.contentBody?['starter_code']);
+    }
   }
 
   @override
@@ -95,6 +110,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     final newTab = ProgramTab(
       title: title ?? 'Program $_programCounter',
       savedId: savedId,
+      initialCode: starterCode,
       controller: CodeController(
         text: starterCode,
         language: python,
@@ -108,12 +124,35 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     });
   }
 
-  void _closeTab(int index) {
+  Future<void> _closeTab(int index) async {
     if (_tabs.length == 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cannot close the last tab. Clear the code instead.')),
       );
       return;
+    }
+
+    if (_tabs[index].isDirty) {
+      final shouldClose = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Unsaved Changes'),
+          content: Text('You have unsaved changes in "${_tabs[index].title}". Are you sure you want to close it without saving?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Close Anyway'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldClose != true) return;
     }
 
     setState(() {
@@ -166,6 +205,11 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     if (_currentTab.savedId != null) {
       final success = await service.updateProgram(_currentTab.savedId!, _currentTab.title, _currentTab.controller.text);
       if (mounted) {
+        if (success) {
+          setState(() {
+            _currentTab.lastSavedCode = _currentTab.controller.text;
+          });
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(success ? 'Updated successfully!' : 'Failed to update program.')),
         );
@@ -201,6 +245,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
           setState(() {
             _currentTab.title = title;
             _currentTab.savedId = savedProgram.id;
+            _currentTab.lastSavedCode = _currentTab.controller.text;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Saved successfully!')),
@@ -222,12 +267,23 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
       builder: (context) => const _SavedProgramsBottomSheet(),
     ).then((selectedProgram) {
       if (selectedProgram != null && selectedProgram is SavedProgram) {
+        // Check if it's already open
+        final existingIndex = _tabs.indexWhere((tab) => tab.savedId == selectedProgram.id);
+        if (existingIndex != -1) {
+          setState(() {
+            _currentTabIndex = existingIndex;
+          });
+          // Flash effect could be added here, but switching tab is usually enough feedback
+          return;
+        }
+
         // If current tab is completely empty/untouched, replace it. Otherwise open new tab.
-        if (_currentTab.controller.text.trim() == '# Write your Python code here' || _currentTab.controller.text.trim().isEmpty) {
+        if (!_currentTab.isDirty && (_currentTab.controller.text.trim() == '# Write your Python code here' || _currentTab.controller.text.trim().isEmpty)) {
           setState(() {
             _currentTab.title = selectedProgram.title;
             _currentTab.savedId = selectedProgram.id;
             _currentTab.controller.text = selectedProgram.code;
+            _currentTab.lastSavedCode = selectedProgram.code;
           });
         } else {
           _addNewTab(
@@ -412,9 +468,39 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
               )).toList(),
             ),
           ),
-          // Standard Input Area
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          // Drag Splitter
+          GestureDetector(
+            onVerticalDragUpdate: (details) {
+              setState(() {
+                _terminalHeight -= details.delta.dy;
+                // Clamp terminal height between 100 and screen height - 200
+                _terminalHeight = _terminalHeight.clamp(100.0, MediaQuery.of(context).size.height - 200.0);
+              });
+            },
+            child: Container(
+              height: 12,
+              color: theme.colorScheme.surfaceContainerHighest,
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Terminal & Input Area
+          SizedBox(
+            height: _terminalHeight,
+            child: Column(
+              children: [
+                // Standard Input Area
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             color: theme.colorScheme.surface,
             child: TextField(
               controller: _currentTab.inputController,
@@ -432,9 +518,9 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
           ),
           
           // Terminal Output
-          Container(
-            width: double.infinity,
-            height: 160,
+          Expanded(
+            child: Container(
+              width: double.infinity,
             color: Colors.black,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -468,7 +554,39 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                 ),
               ],
             ),
+          )),
+              ],
+            ),
           ),
+          if (widget.inline)
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: theme.colorScheme.surface,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _saveProgram,
+                    icon: const Icon(Icons.save),
+                    label: const Text('Save'),
+                  ),
+                  const SizedBox(width: 16),
+                  FilledButton.tonalIcon(
+                    onPressed: _isExecuting ? null : _runCode,
+                    icon: _isExecuting 
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.play_arrow),
+                    label: const Text('Run Code'),
+                  ),
+                  const SizedBox(width: 16),
+                  if (widget.onComplete != null)
+                    FilledButton(
+                      onPressed: widget.onComplete,
+                      child: const Text('Mark Complete & Continue'),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );
