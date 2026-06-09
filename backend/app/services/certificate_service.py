@@ -39,12 +39,16 @@ def generate_certificate_image(
     concepts: List[str]
 ) -> bytes:
     width, height = 1500, 1060
+    img = Image.new("RGB", (width, height), color="#FDFBF7") # Cream background
     
     try:
-        img = Image.open(ABSTRACT_BG_PATH).convert("RGB")
-        img = img.resize((width, height), Image.Resampling.LANCZOS)
-    except Exception:
-        img = Image.new("RGB", (width, height), color="#FDFBF7") # Cream background
+        bg = Image.open(ABSTRACT_BG_PATH).convert("RGBA")
+        bg = bg.resize((width, height), Image.Resampling.LANCZOS)
+        bg.putalpha(60) # Fade background to ~24% opacity
+        img.paste(bg, (0, 0), bg)
+    except Exception as e:
+        print(f"Error loading background: {e}")
+        pass
         
     draw = ImageDraw.Draw(img)
 
@@ -61,10 +65,10 @@ def generate_certificate_image(
     draw.rectangle([70, 70, width-70, height-70], outline=gold_color, width=1)
 
     # --- Fonts ---
-    title_font = _get_font("PlayfairDisplay-Bold.ttf", 120)
+    title_font = _get_font("Roboto-Bold.ttf", 90)
     subtitle_font = _get_font("Roboto-Bold.ttf", 25)
     name_font = _get_font("GreatVibes-Regular.ttf", 160)
-    course_font = _get_font("PlayfairDisplay-Bold.ttf", 120)
+    course_font = _get_font("Roboto-Bold.ttf", 110)
     stat_font = _get_font("Roboto-Regular.ttf", 20)
     stat_bold_font = _get_font("Roboto-Bold.ttf", 20)
     signature_font = _get_font("GreatVibes-Regular.ttf", 60)
