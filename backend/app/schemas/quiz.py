@@ -14,6 +14,7 @@ class QuestionResponse(BaseModel):
 class QuizFetchResponse(BaseModel):
     lesson_id: int
     questions: List[QuestionResponse]
+    previous_submission: Optional[dict] = None
 
 class QuizSubmissionRequest(BaseModel):
     lesson_id: int

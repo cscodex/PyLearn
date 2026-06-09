@@ -114,6 +114,28 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
 
     return quizAsync.when(
       data: (quiz) {
+
+          if (quiz.previousSubmission != null && _result == null && _answers.isEmpty) {
+            // Restore previous submission state so user can view their marks
+            final pSub = quiz.previousSubmission!;
+            final pAnswers = pSub['answers'] as Map<String, dynamic>? ?? {};
+            pAnswers.forEach((k, v) {
+              _answers[int.parse(k)] = v as int;
+            });
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _result = QuizSubmissionResult(
+                    score: pSub['score'] ?? 0,
+                    passed: pSub['passed'] ?? false,
+                    xpEarned: 0,
+                    feedback: "You previously scored ${pSub['score']}% on this quiz.",
+                  );
+                });
+              }
+            });
+          }
+
         if (quiz.questions.isEmpty) {
           return Scaffold(
             appBar: widget.inline ? null : AppBar(title: const Text('Knowledge Check')),

@@ -33,13 +33,15 @@ class Question {
 class Quiz {
   final int lessonId;
   final List<Question> questions;
+  final Map<String, dynamic>? previousSubmission;
 
-  Quiz({required this.lessonId, required this.questions});
+  Quiz({required this.lessonId, required this.questions, this.previousSubmission});
 
   factory Quiz.fromJson(Map<String, dynamic> json) {
     return Quiz(
       lessonId: json['lesson_id'],
       questions: (json['questions'] as List).map((q) => Question.fromJson(q)).toList(),
+      previousSubmission: json['previous_submission'],
     );
   }
 }
