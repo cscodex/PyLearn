@@ -270,7 +270,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
       if (mounted) {
         if (savedProgram != null) {
           setState(() {
-            _currentTab.title = title;
+            _currentTab.title = title!;
             _currentTab.savedId = savedProgram.id;
             _currentTab.lastSavedCode = _currentTab.controller.text;
           });

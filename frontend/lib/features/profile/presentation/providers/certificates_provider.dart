@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/network/dio_client.dart';
-import '../data/models/certificate.dart';
+import '../../../../core/network/dio_client.dart';
+import '../../data/models/certificate.dart';
 
 final myCertificatesProvider = FutureProvider.autoDispose<List<Certificate>>((ref) async {
   final dio = ref.watch(dioProvider);

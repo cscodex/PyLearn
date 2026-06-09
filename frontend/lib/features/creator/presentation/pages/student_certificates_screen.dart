@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../profile/presentation/providers/certificates_provider.dart';
+import '../../../profile/presentation/providers/certificates_provider.dart';
 import 'package:intl/intl.dart';
 
 class StudentCertificatesScreen extends ConsumerWidget {
