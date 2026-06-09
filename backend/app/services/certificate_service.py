@@ -77,12 +77,12 @@ def generate_certificate_image(student_name: str, course_name: str, date_str: st
             draw.rectangle([x+10, y+10, x+90, y+90], outline=gold_color, width=4)
 
     # 2. Fonts
-    title_font = _get_font("PlayfairDisplay-Bold.ttf", 200)
-    subtitle_font = _get_font("Roboto-Regular.ttf", 75)
+    title_font = _get_font("PlayfairDisplay-Bold.ttf", 300)
+    subtitle_font = _get_font("Roboto-Regular.ttf", 120)
     name_font = _get_font("GreatVibes-Regular.ttf", 450)
-    course_font = _get_font("PlayfairDisplay-Bold.ttf", 160)
+    course_font = _get_font("PlayfairDisplay-Bold.ttf", 250)
     signature_font = _get_font("PinyonScript-Regular.ttf", 150)
-    small_font = _get_font("Roboto-Regular.ttf", 50)
+    small_font = _get_font("Roboto-Regular.ttf", 70)
 
     def draw_centered_text(y: int, text: str, font: ImageFont.FreeTypeFont, fill: str):
         # Handle long text wrapping
