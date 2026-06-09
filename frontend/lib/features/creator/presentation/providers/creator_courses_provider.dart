@@ -178,15 +178,29 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
   Future<bool> saveQuizQuestions(int lessonId, List<Map<String, dynamic>> questions) async {
     state = const AsyncValue.loading();
     try {
+      int qIndex = 1;
       for (var q in questions) {
+        List<Map<String, dynamic>> finalOptions = [];
+        int optIndex = 1;
+        for(var opt in (q['options'] ?? [])) {
+           finalOptions.add({
+             'option_text': opt['option_text'],
+             'is_correct': opt['is_correct'],
+             'order_index': optIndex,
+           });
+           optIndex++;
+        }
+
         await _dio.post('/creator/lessons/$lessonId/questions', data: {
           'question_type': q['type'],
           'question_text': q['text'],
           'question_data': q['data'] ?? {},
+          'difficulty': q['difficulty'] ?? 'medium',
           'points': q['points'] ?? 1,
-          'order_index': 1,
-          'options': q['options'] ?? [],
+          'order_index': qIndex,
+          'options': finalOptions,
         });
+        qIndex++;
       }
       fetchCourses();
       return true;
