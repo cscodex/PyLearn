@@ -55,6 +55,20 @@ class SavedProgramsService {
     }
   }
 
+  Future<bool> updateProgram(int id, String title, String code) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.put('/saved-programs/$id', data: {
+        'title': title,
+        'code': code,
+      });
+      ref.invalidate(savedProgramsProvider);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<void> deleteProgram(int id) async {
     try {
       final dio = ref.read(dioProvider);
