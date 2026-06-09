@@ -8,7 +8,12 @@ class CertificatesScreen extends ConsumerWidget {
   const CertificatesScreen({super.key});
 
   Future<void> _downloadCertificate(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
+    // Add fl_attachment to Cloudinary URL to force a download instead of inline view
+    final downloadUrl = url.contains('/upload/') 
+        ? url.replaceFirst('/upload/', '/upload/fl_attachment/') 
+        : url;
+        
+    final uri = Uri.parse(downloadUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
