@@ -45,8 +45,18 @@ async def execute_python_code(code: str, timeout_seconds: int = 5) -> Dict[str, 
         check_code_security(code)
         
         # 2. Write code to temp file
+        # Prepend a mock input() function to provide a helpful error message
+        mock_input_code = \"\"\"
+def __mock_input(prompt=""):
+    raise RuntimeError("Interactive input() is not supported in this IDE. Please assign values directly to variables (e.g., num1 = 5).")
+import builtins
+builtins.input = __mock_input
+
+\"\"\"
+        full_code = mock_input_code + code
+
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
-            temp_file.write(code)
+            temp_file.write(full_code)
             temp_path = temp_file.name
 
         try:
