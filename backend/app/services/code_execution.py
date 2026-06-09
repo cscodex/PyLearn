@@ -36,68 +36,92 @@ def check_code_security(code: str) -> None:
     visitor = SecurityNodeVisitor()
     visitor.visit(tree)
 
-async def execute_python_code(code: str, timeout_seconds: int = 15, standard_input: str = "") -> Dict[str, Any]:
-    """Execute python code in a separate process with a timeout."""
+import io
+import sys
+import contextlib
+import traceback
+import asyncio
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+
+def _run_in_process(code: str, standard_input: str) -> Dict[str, Any]:
     start_time = time.time()
+    f_out = io.StringIO()
+    f_err = io.StringIO()
     
+    # Create a generator for inputs
+    input_lines = standard_input.split('\n')
+    input_iter = iter(input_lines)
+    
+    def mock_input(prompt=""):
+        if prompt:
+            f_out.write(str(prompt))
+        try:
+            return next(input_iter)
+        except StopIteration:
+            return ""
+
+    # Provide a safe globals dictionary
+    safe_globals = {
+        "__builtins__": __builtins__.copy(),
+        "input": mock_input,
+        "plt": plt,
+        "pd": pd,
+        "np": np
+    }
+
+    try:
+        with contextlib.redirect_stdout(f_out), contextlib.redirect_stderr(f_err):
+            exec(code, safe_globals)
+        success = True
+    except Exception as e:
+        traceback.print_exc(file=f_err)
+        success = False
+        
+    execution_time = (time.time() - start_time) * 1000
+    
+    return {
+        "stdout": f_out.getvalue(),
+        "stderr": f_err.getvalue(),
+        "execution_time_ms": int(execution_time),
+        "is_success": success
+    }
+
+async def execute_python_code(code: str, timeout_seconds: int = 15, standard_input: str = "") -> Dict[str, Any]:
+    """Execute python code rapidly in-process to avoid cold starts."""
     try:
         # 1. Security Check
         check_code_security(code)
         
-        # 2. Write code to temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
-            temp_file.write(code)
-            temp_path = temp_file.name
-
-        try:
-            # 3. Execute code in a subprocess
-            # Note: In a true production environment, this should run inside a Docker container
-            # or a gVisor sandbox. For MVP, we use subprocess with timeout.
-            env = os.environ.copy()
-            env["MPLBACKEND"] = "Agg"
-            
-            process = subprocess.run(
-                ['python3', temp_path],
-                input=standard_input,
-                capture_output=True,
-                text=True,
-                timeout=timeout_seconds,
-                env=env
-            )
-            
-            execution_time = (time.time() - start_time) * 1000  # in ms
-            
-            return {
-                "stdout": process.stdout,
-                "stderr": process.stderr,
-                "execution_time_ms": int(execution_time),
-                "is_success": process.returncode == 0
-            }
-            
-        except subprocess.TimeoutExpired:
-            execution_time = (time.time() - start_time) * 1000
-            return {
-                "stdout": "",
-                "stderr": f"Error: Execution timed out after {timeout_seconds} seconds.",
-                "execution_time_ms": int(execution_time),
-                "is_success": False
-            }
-        finally:
-            # Cleanup temp file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-                
+        # 2. Run in a thread to prevent blocking the async loop
+        # We use asyncio.wait_for to enforce the timeout
+        result = await asyncio.wait_for(
+            asyncio.to_thread(_run_in_process, code, standard_input),
+            timeout=timeout_seconds
+        )
+        return result
+        
+    except asyncio.TimeoutError:
+        return {
+            "stdout": "",
+            "stderr": f"Error: Execution timed out after {timeout_seconds} seconds.",
+            "execution_time_ms": timeout_seconds * 1000,
+            "is_success": False
+        }
     except CodeExecutionError as e:
         return {
             "stdout": "",
             "stderr": str(e),
-            "execution_time_ms": int((time.time() - start_time) * 1000),
+            "execution_time_ms": 0,
             "is_success": False
         }
     except Exception as e:
         return {
             "stdout": "",
             "stderr": f"System Error: {str(e)}",
-            "execution_time_ms": int((time.time() - start_time) * 1000),
+            "execution_time_ms": 0,
             "is_success": False
         }
