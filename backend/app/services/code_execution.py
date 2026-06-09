@@ -36,7 +36,7 @@ def check_code_security(code: str) -> None:
     visitor = SecurityNodeVisitor()
     visitor.visit(tree)
 
-async def execute_python_code(code: str, timeout_seconds: int = 5, standard_input: str = "") -> Dict[str, Any]:
+async def execute_python_code(code: str, timeout_seconds: int = 15, standard_input: str = "") -> Dict[str, Any]:
     """Execute python code in a separate process with a timeout."""
     start_time = time.time()
     
