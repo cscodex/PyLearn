@@ -10,6 +10,8 @@ ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
 TEMPLATE_PATH = os.path.join(ASSETS_DIR, "template.jpg")
 APP_ICON_PATH = os.path.join(ASSETS_DIR, "app_icon.png")
+ABSTRACT_BG_PATH = os.path.join(ASSETS_DIR, "abstract_bg.png")
+GOLD_STAR_PATH = os.path.join(ASSETS_DIR, "gold_star.png")
 
 def _get_font(font_name: str, size: int) -> ImageFont.FreeTypeFont:
     font_path = os.path.join(FONTS_DIR, font_name)
@@ -37,7 +39,13 @@ def generate_certificate_image(
     concepts: List[str]
 ) -> bytes:
     width, height = 1500, 1060
-    img = Image.new("RGB", (width, height), color="#FDFBF7") # Cream background
+    
+    try:
+        img = Image.open(ABSTRACT_BG_PATH).convert("RGB")
+        img = img.resize((width, height), Image.Resampling.LANCZOS)
+    except Exception:
+        img = Image.new("RGB", (width, height), color="#FDFBF7") # Cream background
+        
     draw = ImageDraw.Draw(img)
 
     primary_color = "#1E3A8A" # Navy
@@ -53,10 +61,10 @@ def generate_certificate_image(
     draw.rectangle([70, 70, width-70, height-70], outline=gold_color, width=1)
 
     # --- Fonts ---
-    title_font = _get_font("PlayfairDisplay-Bold.ttf", 60)
+    title_font = _get_font("PlayfairDisplay-Bold.ttf", 90)
     subtitle_font = _get_font("Roboto-Bold.ttf", 25)
     name_font = _get_font("GreatVibes-Regular.ttf", 120)
-    course_font = _get_font("PlayfairDisplay-Bold.ttf", 50)
+    course_font = _get_font("PlayfairDisplay-Bold.ttf", 80)
     stat_font = _get_font("Roboto-Regular.ttf", 20)
     stat_bold_font = _get_font("Roboto-Bold.ttf", 20)
     signature_font = _get_font("GreatVibes-Regular.ttf", 60)
@@ -87,10 +95,26 @@ def generate_certificate_image(
     if concepts:
         display_concepts = concepts[:6]
         spacing = width / (len(display_concepts) + 1)
+        
+        try:
+            star_icon = Image.open(GOLD_STAR_PATH).convert("RGBA")
+            star_icon = star_icon.resize((20, 20), Image.Resampling.LANCZOS)
+        except Exception:
+            star_icon = None
+            
         for i, concept in enumerate(display_concepts):
             x_pos = spacing * (i + 1)
-            bullet = "• " + concept
-            draw_centered(draw, x_pos, 710, bullet, concept_font, dark_gray)
+            # Center the concept text
+            bbox = draw.textbbox((0, 0), concept, font=concept_font)
+            text_w = bbox[2] - bbox[0]
+            
+            if star_icon:
+                # Paste star to the left of the text
+                img.paste(star_icon, (int(x_pos - text_w/2 - 25), 712), star_icon)
+                draw.text((x_pos - text_w/2, 710), concept, font=concept_font, fill=dark_gray)
+            else:
+                bullet = "★ " + concept
+                draw_centered(draw, x_pos, 720, bullet, concept_font, dark_gray)
 
     # --- Stats Row ---
     # Grouped at the bottom center
@@ -111,15 +135,16 @@ def generate_certificate_image(
     draw_centered(draw, 1150, stat_y, grade_str, stat_font, dark_gray)
 
     # --- Signatures ---
+    sig_y = 880
     # Left (Instructor)
-    draw_centered(draw, 300, 930, instructor_name, signature_font, dark_gray)
-    draw.line([(200, 960), (400, 960)], fill=dark_gray, width=1)
-    draw_centered(draw, 300, 980, "Instructor", sig_title_font, primary_color)
+    draw_centered(draw, 300, sig_y, instructor_name, signature_font, dark_gray)
+    draw.line([(200, sig_y + 30), (400, sig_y + 30)], fill=dark_gray, width=1)
+    draw_centered(draw, 300, sig_y + 50, "Instructor", sig_title_font, primary_color)
 
     # Right (Director)
-    draw_centered(draw, 1200, 930, director_name, signature_font, dark_gray)
-    draw.line([(1100, 960), (1300, 960)], fill=dark_gray, width=1)
-    draw_centered(draw, 1200, 980, "Director", sig_title_font, primary_color)
+    draw_centered(draw, 1200, sig_y, director_name, signature_font, dark_gray)
+    draw.line([(1100, sig_y + 30), (1300, sig_y + 30)], fill=dark_gray, width=1)
+    draw_centered(draw, 1200, sig_y + 50, "Director", sig_title_font, primary_color)
 
     # Save to BytesIO
     img_byte_arr = io.BytesIO()
