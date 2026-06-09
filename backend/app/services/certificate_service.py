@@ -77,57 +77,78 @@ def generate_certificate_image(student_name: str, course_name: str, date_str: st
             draw.rectangle([x+10, y+10, x+90, y+90], outline=gold_color, width=4)
 
     # 2. Fonts
-    title_font = _get_font("PlayfairDisplay-Bold.ttf", 160)
-    subtitle_font = _get_font("Roboto-Regular.ttf", 55)
-    name_font = _get_font("GreatVibes-Regular.ttf", 350)
-    course_font = _get_font("PlayfairDisplay-Bold.ttf", 140)
-    signature_font = _get_font("PinyonScript-Regular.ttf", 120)
-    small_font = _get_font("Roboto-Regular.ttf", 35)
+    title_font = _get_font("PlayfairDisplay-Bold.ttf", 200)
+    subtitle_font = _get_font("Roboto-Regular.ttf", 75)
+    name_font = _get_font("GreatVibes-Regular.ttf", 450)
+    course_font = _get_font("PlayfairDisplay-Bold.ttf", 160)
+    signature_font = _get_font("PinyonScript-Regular.ttf", 150)
+    small_font = _get_font("Roboto-Regular.ttf", 50)
 
     def draw_centered_text(y: int, text: str, font: ImageFont.FreeTypeFont, fill: str):
-        bbox = draw.textbbox((0, 0), text, font=font)
-        text_width = bbox[2] - bbox[0]
-        x = (width - text_width) / 2
-        draw.text((x, y), text, fill=fill, font=font)
+        # Handle long text wrapping
+        max_width = width - 400
+        words = text.split()
+        lines = []
+        current_line = []
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            if (bbox[2] - bbox[0]) <= max_width:
+                current_line.append(word)
+            else:
+                lines.append(' '.join(current_line))
+                current_line = [word]
+        lines.append(' '.join(current_line))
+        
+        current_y = y
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (width - text_width) / 2
+            draw.text((x, current_y), line, fill=fill, font=font)
+            current_y += text_height + 20
 
     # 3. Typography & Layout
-    draw_centered_text(350, "CERTIFICATE OF ACHIEVEMENT", title_font, primary_color)
-    draw_centered_text(550, "THIS IS PROUDLY PRESENTED TO", subtitle_font, gold_color)
+    draw_centered_text(300, "CERTIFICATE OF ACHIEVEMENT", title_font, primary_color)
+    draw_centered_text(600, "THIS IS PROUDLY PRESENTED TO", subtitle_font, gold_color)
     
     # Student Name
     draw_centered_text(750, student_name, name_font, accent_color)
     
     # Separator Line
-    draw.line([(width/2 - 600, 1150), (width/2 + 600, 1150)], fill=gold_color, width=4)
+    draw.line([(width/2 - 800, 1300), (width/2 + 800, 1300)], fill=gold_color, width=6)
 
     # Description
-    description = "in recognition of their outstanding performance and successful\ncompletion of the requirements for the following program:"
-    # split lines and center
-    lines = description.split('\n')
-    draw_centered_text(1250, lines[0], subtitle_font, text_color)
-    draw_centered_text(1330, lines[1], subtitle_font, text_color)
+    description = "In recognition of their outstanding performance and successful completion of the requirements for the following program:"
+    draw_centered_text(1380, description, subtitle_font, text_color)
     
     # Course Name
-    draw_centered_text(1500, course_name, course_font, primary_color)
+    draw_centered_text(1600, course_name, course_font, primary_color)
 
     # 4. Footer & Signatures
     # Seal
-    _draw_seal(draw, width/2, 2000, 140)
+    _draw_seal(draw, width/2, 2050, 180)
 
     # Date
     date_y = 1950
-    draw.text((500, date_y - 80), date_str, fill=primary_color, font=signature_font)
-    draw.line([(450, date_y + 40), (950, date_y + 40)], fill=primary_color, width=3)
-    draw.text((630, date_y + 60), "Date", fill=light_text, font=small_font)
+    bbox = draw.textbbox((0, 0), date_str, font=signature_font)
+    date_width = bbox[2] - bbox[0]
+    draw.text((600 - date_width/2, date_y - 100), date_str, fill=primary_color, font=signature_font)
+    draw.line([(350, date_y + 60), (850, date_y + 60)], fill=primary_color, width=4)
+    draw.text((570, date_y + 80), "Date", fill=light_text, font=small_font)
     
     # Signature
     sig_y = 1950
-    draw.text((width - 900, sig_y - 80), "PyLearn Director", fill=primary_color, font=signature_font)
-    draw.line([(width - 950, sig_y + 40), (width - 450, sig_y + 40)], fill=primary_color, width=3)
-    draw.text((width - 780, sig_y + 60), "Instructor", fill=light_text, font=small_font)
+    sig_str = "PyLearn Director"
+    bbox = draw.textbbox((0, 0), sig_str, font=signature_font)
+    sig_width = bbox[2] - bbox[0]
+    draw.text((width - 600 - sig_width/2, sig_y - 100), sig_str, fill=primary_color, font=signature_font)
+    draw.line([(width - 850, sig_y + 60), (width - 350, sig_y + 60)], fill=primary_color, width=4)
+    draw.text((width - 660, sig_y + 80), "Instructor", fill=light_text, font=small_font)
     
     # Certificate ID at the very bottom
-    draw_centered_text(2250, f"Certificate ID: {certificate_id}  |  Verify authenticity at pylearn.com/verify/{certificate_id}", small_font, light_text)
+    draw_centered_text(2300, f"Certificate ID: {certificate_id}  |  Verify authenticity at pylearn.com/verify/{certificate_id}", small_font, light_text)
 
     # 5. Export
     img_byte_arr = io.BytesIO()
