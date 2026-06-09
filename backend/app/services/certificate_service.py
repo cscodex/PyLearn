@@ -3,8 +3,8 @@ import io
 import cloudinary.uploader
 from PIL import Image, ImageDraw, ImageFont
 import datetime
+import math
 
-# Determine base dir
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 FONTS_DIR = os.path.join(ASSETS_DIR, "fonts")
@@ -14,90 +14,127 @@ def _get_font(font_name: str, size: int) -> ImageFont.FreeTypeFont:
     try:
         return ImageFont.truetype(font_path, size)
     except Exception:
-        # Fallback to default if font missing
         return ImageFont.load_default()
 
+def _draw_seal(draw, center_x, center_y, radius):
+    """Draws a premium looking gold seal."""
+    # Ribbons
+    draw.polygon([
+        (center_x - 30, center_y + radius - 10),
+        (center_x - 80, center_y + radius + 150),
+        (center_x, center_y + radius + 120),
+    ], fill="#B45309")
+    draw.polygon([
+        (center_x + 30, center_y + radius - 10),
+        (center_x + 80, center_y + radius + 150),
+        (center_x, center_y + radius + 120),
+    ], fill="#B45309")
+
+    # Outer jagged edge (star-like)
+    points = []
+    num_points = 40
+    for i in range(num_points * 2):
+        r = radius + (10 if i % 2 == 0 else -10)
+        angle = i * (math.pi / num_points)
+        x = center_x + r * math.cos(angle)
+        y = center_y + r * math.sin(angle)
+        points.append((x, y))
+    draw.polygon(points, fill="#D97706") # Gold
+    
+    # Inner circles
+    draw.ellipse((center_x - radius + 10, center_y - radius + 10, center_x + radius - 10, center_y + radius - 10), outline="#FBBF24", width=4)
+    draw.ellipse((center_x - radius + 18, center_y - radius + 18, center_x + radius - 18, center_y + radius - 18), fill="#F59E0B")
+    
+    # Seal text
+    seal_font = _get_font("Roboto-Regular.ttf", 28)
+    bbox = draw.textbbox((0, 0), "OFFICIAL", font=seal_font)
+    draw.text((center_x - (bbox[2]-bbox[0])/2, center_y - 20), "OFFICIAL", fill="#FFFFFF", font=seal_font)
+    bbox = draw.textbbox((0, 0), "SEAL", font=seal_font)
+    draw.text((center_x - (bbox[2]-bbox[0])/2, center_y + 10), "SEAL", fill="#FFFFFF", font=seal_font)
+
+
 def generate_certificate_image(student_name: str, course_name: str, date_str: str, certificate_id: str) -> bytes:
-    """Generate a certificate image using Pillow and return as JPEG bytes."""
-    # Create a blank high-res canvas (A4 Landscape at 150 DPI approx)
-    width, height = 1754, 1240
-    img = Image.new('RGB', (width, height), color='#FFFFFF')
+    # A4 dimensions in pixels at 300 DPI
+    width, height = 3508, 2480
+    img = Image.new('RGB', (width, height), color='#FDFBF7') # Off-white parchment color
     draw = ImageDraw.Draw(img)
 
-    # Colors
-    primary_color = "#1E1B4B" # Deep purple/navy
-    accent_color = "#4338CA"  # Indigo
-    gold_color = "#D97706"    # Amber/Gold
-    text_color = "#333333"
+    primary_color = "#0F172A" # Dark Slate
+    accent_color = "#3730A3"  # Deep Indigo
+    gold_color = "#B45309"    # Dark Gold
+    text_color = "#334155"    # Slate Gray
+    light_text = "#64748B"
 
-    # Draw border
-    border_margin = 40
-    draw.rectangle(
-        [border_margin, border_margin, width - border_margin, height - border_margin],
-        outline=primary_color,
-        width=10
-    )
-    # Inner border
-    inner_margin = 55
-    draw.rectangle(
-        [inner_margin, inner_margin, width - inner_margin, height - inner_margin],
-        outline=gold_color,
-        width=2
-    )
+    # 1. Complex Borders
+    draw.rectangle([80, 80, width - 80, height - 80], outline=primary_color, width=20)
+    draw.rectangle([110, 110, width - 110, height - 110], outline=gold_color, width=6)
+    draw.rectangle([130, 130, width - 130, height - 130], outline=primary_color, width=2)
+    
+    # Corner accents
+    for x in [80, width-80-100]:
+        for y in [80, height-80-100]:
+            draw.rectangle([x, y, x+100, y+100], fill=primary_color)
+            draw.rectangle([x+10, y+10, x+90, y+90], outline=gold_color, width=4)
 
-    # Load Fonts
-    title_font = _get_font("PlayfairDisplay-Bold.ttf", 90)
-    subtitle_font = _get_font("Roboto-Regular.ttf", 40)
-    name_font = _get_font("PlayfairDisplay-Bold.ttf", 120)
-    course_font = _get_font("PlayfairDisplay-Bold.ttf", 60)
-    small_font = _get_font("Roboto-Regular.ttf", 25)
+    # 2. Fonts
+    title_font = _get_font("PlayfairDisplay-Bold.ttf", 160)
+    subtitle_font = _get_font("Roboto-Regular.ttf", 55)
+    name_font = _get_font("GreatVibes-Regular.ttf", 350)
+    course_font = _get_font("PlayfairDisplay-Bold.ttf", 140)
+    signature_font = _get_font("PinyonScript-Regular.ttf", 120)
+    small_font = _get_font("Roboto-Regular.ttf", 35)
 
-    # Helper for centered text
     def draw_centered_text(y: int, text: str, font: ImageFont.FreeTypeFont, fill: str):
-        # Use textbbox instead of deprecated textsize
         bbox = draw.textbbox((0, 0), text, font=font)
         text_width = bbox[2] - bbox[0]
         x = (width - text_width) / 2
         draw.text((x, y), text, fill=fill, font=font)
 
-    # Add text
-    draw_centered_text(150, "CERTIFICATE OF COMPLETION", title_font, primary_color)
-    draw_centered_text(280, "This is to certify that", subtitle_font, text_color)
+    # 3. Typography & Layout
+    draw_centered_text(350, "CERTIFICATE OF ACHIEVEMENT", title_font, primary_color)
+    draw_centered_text(550, "THIS IS PROUDLY PRESENTED TO", subtitle_font, gold_color)
     
-    draw_centered_text(400, student_name, name_font, accent_color)
+    # Student Name
+    draw_centered_text(750, student_name, name_font, accent_color)
     
-    # Underline name
-    bbox = draw.textbbox((0, 0), student_name, font=name_font)
-    text_width = bbox[2] - bbox[0]
-    x_start = (width - text_width) / 2
-    draw.line([(x_start - 50, 540), (x_start + text_width + 50, 540)], fill=gold_color, width=4)
+    # Separator Line
+    draw.line([(width/2 - 600, 1150), (width/2 + 600, 1150)], fill=gold_color, width=4)
 
-    draw_centered_text(600, "has successfully completed the course", subtitle_font, text_color)
-    draw_centered_text(700, course_name, course_font, primary_color)
+    # Description
+    description = "in recognition of their outstanding performance and successful\ncompletion of the requirements for the following program:"
+    # split lines and center
+    lines = description.split('\n')
+    draw_centered_text(1250, lines[0], subtitle_font, text_color)
+    draw_centered_text(1330, lines[1], subtitle_font, text_color)
+    
+    # Course Name
+    draw_centered_text(1500, course_name, course_font, primary_color)
 
-    # Signatures and Date
-    date_label = f"Date: {date_str}"
-    id_label = f"Certificate ID: {certificate_id}"
-    
-    # Left side (Date)
-    draw.text((250, 950), date_label, fill=text_color, font=subtitle_font)
-    draw.line([(250, 1000), (550, 1000)], fill=text_color, width=2)
-    
-    # Right side (Signature)
-    draw.text((width - 600, 950), "Instructor Signature", fill=text_color, font=subtitle_font)
-    draw.line([(width - 650, 1000), (width - 250, 1000)], fill=text_color, width=2)
-    
-    # Bottom Center (ID)
-    draw_centered_text(1100, id_label, small_font, "#666666")
-    draw_centered_text(1150, "Verify at: PyLearn.com/verify", small_font, "#666666")
+    # 4. Footer & Signatures
+    # Seal
+    _draw_seal(draw, width/2, 2000, 140)
 
-    # Save to BytesIO
+    # Date
+    date_y = 1950
+    draw.text((500, date_y - 80), date_str, fill=primary_color, font=signature_font)
+    draw.line([(450, date_y + 40), (950, date_y + 40)], fill=primary_color, width=3)
+    draw.text((630, date_y + 60), "Date", fill=light_text, font=small_font)
+    
+    # Signature
+    sig_y = 1950
+    draw.text((width - 900, sig_y - 80), "PyLearn Director", fill=primary_color, font=signature_font)
+    draw.line([(width - 950, sig_y + 40), (width - 450, sig_y + 40)], fill=primary_color, width=3)
+    draw.text((width - 780, sig_y + 60), "Instructor", fill=light_text, font=small_font)
+    
+    # Certificate ID at the very bottom
+    draw_centered_text(2250, f"Certificate ID: {certificate_id}  |  Verify authenticity at pylearn.com/verify/{certificate_id}", small_font, light_text)
+
+    # 5. Export
     img_byte_arr = io.BytesIO()
-    img.save(img_byte_arr, format='JPEG', quality=90)
+    img.save(img_byte_arr, format='JPEG', quality=95)
     return img_byte_arr.getvalue()
 
 def upload_certificate_to_cloudinary(image_bytes: bytes, certificate_id: str) -> str:
-    """Uploads the certificate bytes to Cloudinary and returns the secure URL."""
     try:
         response = cloudinary.uploader.upload(
             image_bytes,
@@ -111,7 +148,6 @@ def upload_certificate_to_cloudinary(image_bytes: bytes, certificate_id: str) ->
         return ""
 
 def generate_and_upload_certificate(student_name: str, course_name: str, certificate_id: str) -> str:
-    """Generates a certificate and uploads it, returning the URL."""
     date_str = datetime.datetime.now().strftime("%B %d, %Y")
     image_bytes = generate_certificate_image(student_name, course_name, date_str, certificate_id)
     return upload_certificate_to_cloudinary(image_bytes, certificate_id)
