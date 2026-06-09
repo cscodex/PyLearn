@@ -36,90 +36,90 @@ def generate_certificate_image(
     grade_str: str,
     concepts: List[str]
 ) -> bytes:
-    # Open the template
-    try:
-        img = Image.open(TEMPLATE_PATH).convert('RGB')
-    except Exception as e:
-        print(f"Error opening template: {e}")
-        img = Image.new('RGB', (1492, 1054), color='#FDFBF7')
-        
+    width, height = 1500, 1060
+    img = Image.new("RGB", (width, height), color="#FDFBF7") # Cream background
     draw = ImageDraw.Draw(img)
 
-    bg_color = "#FDFCFB" # Match the off-white center background
-
-    # 1. Blank out Original Logo (Top Left)
-    draw.rectangle([50, 50, 300, 300], fill=bg_color)
-    
-    # Paste App Logo
-    try:
-        app_logo = Image.open(APP_ICON_PATH).convert("RGBA")
-        app_logo = app_logo.resize((150, 150), Image.Resampling.LANCZOS)
-        # Paste using alpha channel as mask
-        img.paste(app_logo, (100, 90), app_logo)
-    except Exception as e:
-        print(f"Could not load app logo: {e}")
-
-    # 2. Blank out Name, Course, Stats
-    # Expand bounding boxes significantly to ensure total coverage
-    draw.rectangle([200, 280, 1300, 430], fill=bg_color)  # Name
-    draw.rectangle([150, 430, 1350, 520], fill=bg_color)  # Course
-    draw.rectangle([100, 690, 1350, 770], fill=bg_color)  # Stats
-
-    # 3. Blank out Concepts Row
-    draw.rectangle([80, 520, 1400, 680], fill=bg_color)
-
-    # 4. Blank out Signatures
-    draw.rectangle([100, 790, 500, 950], fill=bg_color)   # Left signature (Instructor)
-    draw.rectangle([900, 790, 1400, 950], fill=bg_color) # Right signature (Director)
-
-    # Fonts
-    name_font = _get_font("GreatVibes-Regular.ttf", 100)
-    course_font = _get_font("Roboto-Bold.ttf", 45)
-    stat_font = _get_font("Roboto-Regular.ttf", 20)
-    signature_font = _get_font("GreatVibes-Regular.ttf", 60)
-    title_font = _get_font("Roboto-Bold.ttf", 18)
-    concept_font = _get_font("Roboto-Regular.ttf", 18)
-
-    # Text Colors
-    primary_color = "#1E3A8A" # Deep blue
+    primary_color = "#1E3A8A" # Navy
+    gold_color = "#D4AF37" # Gold
     dark_gray = "#333333"
 
-    # Draw Student Name
-    draw_centered(draw, 1492/2, 350, student_name, name_font, fill=primary_color)
+    # --- Draw Borders ---
+    # Outer Gold Border
+    draw.rectangle([40, 40, width-40, height-40], outline=gold_color, width=12)
+    # Inner Navy Border
+    draw.rectangle([60, 60, width-60, height-60], outline=primary_color, width=4)
+    # Decorative thin inner border
+    draw.rectangle([70, 70, width-70, height-70], outline=gold_color, width=1)
+
+    # --- Fonts ---
+    title_font = _get_font("PlayfairDisplay-Bold.ttf", 60)
+    subtitle_font = _get_font("Roboto-Bold.ttf", 25)
+    name_font = _get_font("GreatVibes-Regular.ttf", 120)
+    course_font = _get_font("PlayfairDisplay-Bold.ttf", 50)
+    stat_font = _get_font("Roboto-Regular.ttf", 20)
+    stat_bold_font = _get_font("Roboto-Bold.ttf", 20)
+    signature_font = _get_font("GreatVibes-Regular.ttf", 60)
+    sig_title_font = _get_font("Roboto-Bold.ttf", 18)
+    concept_font = _get_font("Roboto-Regular.ttf", 20)
+
+    # --- Header ---
+    # Logo
+    try:
+        app_logo = Image.open(APP_ICON_PATH).convert("RGBA")
+        app_logo = app_logo.resize((120, 120), Image.Resampling.LANCZOS)
+        img.paste(app_logo, (width//2 - 60, 100), app_logo)
+    except Exception:
+        pass
     
-    # Draw Course Name
-    draw_centered(draw, 1492/2, 465, course_name, course_font, fill=primary_color)
+    draw_centered(draw, width/2, 260, "CERTIFICATE OF COMPLETION", title_font, fill=primary_color)
+    draw_centered(draw, width/2, 330, "THIS IS PROUDLY PRESENTED TO", subtitle_font, fill=gold_color)
 
-    # Draw Stats (Date, ID, Duration, Score, Grade)
-    draw_centered(draw, 225, 735, date_str, stat_font, dark_gray)
-    draw_centered(draw, 415, 735, certificate_id, stat_font, dark_gray)
-    draw_centered(draw, 590, 735, duration_str, stat_font, dark_gray)
-    draw_centered(draw, 715, 735, score_str, stat_font, dark_gray)
-    draw_centered(draw, 830, 735, grade_str, stat_font, dark_gray)
+    # --- Student Name ---
+    draw_centered(draw, width/2, 450, student_name, name_font, fill=primary_color)
+    draw.line([(width/2 - 400, 520), (width/2 + 400, 520)], fill=gold_color, width=2)
 
-    # Draw Signatures
-    # Left (Instructor)
-    draw_centered(draw, 260, 850, instructor_name, signature_font, dark_gray)
-    draw.line([(160, 890), (360, 890)], fill=dark_gray, width=1)
-    draw_centered(draw, 260, 910, "Instructor", title_font, primary_color)
+    # --- Description ---
+    draw_centered(draw, width/2, 570, "For successfully completing the rigorous requirements of the", stat_font, fill=dark_gray)
+    draw_centered(draw, width/2, 630, course_name, course_font, fill=primary_color)
 
-    # Right (Director)
-    draw_centered(draw, 1180, 850, director_name, signature_font, dark_gray)
-    draw.line([(1080, 890), (1280, 890)], fill=dark_gray, width=1)
-    draw_centered(draw, 1180, 910, "Director", title_font, primary_color)
-
-    # Draw Concepts
-    # Distribute the concepts evenly across the row (y=590)
+    # --- Concepts ---
     if concepts:
-        # Max 6 concepts to fit properly
         display_concepts = concepts[:6]
-        total_width = 1492
-        spacing = total_width / (len(display_concepts) + 1)
+        spacing = width / (len(display_concepts) + 1)
         for i, concept in enumerate(display_concepts):
             x_pos = spacing * (i + 1)
-            # Add a small bullet point before the concept
             bullet = "• " + concept
-            draw_centered(draw, x_pos, 590, bullet, concept_font, dark_gray)
+            draw_centered(draw, x_pos, 710, bullet, concept_font, dark_gray)
+
+    # --- Stats Row ---
+    # Grouped at the bottom center
+    stat_y = 820
+    draw_centered(draw, 350, stat_y - 25, "DATE", stat_bold_font, primary_color)
+    draw_centered(draw, 350, stat_y, date_str, stat_font, dark_gray)
+
+    draw_centered(draw, 550, stat_y - 25, "ID", stat_bold_font, primary_color)
+    draw_centered(draw, 550, stat_y, certificate_id, stat_font, dark_gray)
+
+    draw_centered(draw, 750, stat_y - 25, "DURATION", stat_bold_font, primary_color)
+    draw_centered(draw, 750, stat_y, duration_str, stat_font, dark_gray)
+
+    draw_centered(draw, 950, stat_y - 25, "SCORE", stat_bold_font, primary_color)
+    draw_centered(draw, 950, stat_y, score_str, stat_font, dark_gray)
+
+    draw_centered(draw, 1150, stat_y - 25, "GRADE", stat_bold_font, primary_color)
+    draw_centered(draw, 1150, stat_y, grade_str, stat_font, dark_gray)
+
+    # --- Signatures ---
+    # Left (Instructor)
+    draw_centered(draw, 300, 930, instructor_name, signature_font, dark_gray)
+    draw.line([(200, 960), (400, 960)], fill=dark_gray, width=1)
+    draw_centered(draw, 300, 980, "Instructor", sig_title_font, primary_color)
+
+    # Right (Director)
+    draw_centered(draw, 1200, 930, director_name, signature_font, dark_gray)
+    draw.line([(1100, 960), (1300, 960)], fill=dark_gray, width=1)
+    draw_centered(draw, 1200, 980, "Director", sig_title_font, primary_color)
 
     # Save to BytesIO
     img_byte_arr = io.BytesIO()
