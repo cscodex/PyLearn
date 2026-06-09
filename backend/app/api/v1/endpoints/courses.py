@@ -229,6 +229,41 @@ async def complete_lesson(
     percentage = min(100.0, (completed_lessons / total_lessons) * 100.0)
     enrollment.progress_percentage = percentage
     
+    if percentage >= 100.0:
+        if not enrollment.completed_at:
+            enrollment.completed_at = datetime.datetime.now(datetime.timezone.utc)
+            
+        # Check if certificate exists
+        from app.models.misc import Certificate
+        cert_result = await db.execute(select(Certificate).filter_by(user_id=current_user.id, course_id=course_id))
+        cert = cert_result.scalars().first()
+        
+        if not cert:
+            from app.services.certificate_service import generate_and_upload_certificate
+            import uuid
+            
+            # We need course name
+            course_result = await db.execute(select(Course).filter_by(id=course_id))
+            course = course_result.scalars().first()
+            
+            cert_id_str = str(uuid.uuid4())[:8].upper()
+            
+            # This should ideally be a background task to avoid blocking the request,
+            # but for now we do it synchronously to ensure it's available immediately.
+            secure_url = generate_and_upload_certificate(
+                student_name=current_user.full_name,
+                course_name=course.title if course else "Course",
+                certificate_id=cert_id_str
+            )
+            
+            new_cert = Certificate(
+                user_id=current_user.id,
+                course_id=course_id,
+                certificate_number=cert_id_str,
+                pdf_url=secure_url
+            )
+            db.add(new_cert)
+
     await db.commit()
     
     return {"success": True, "progress_percentage": percentage}

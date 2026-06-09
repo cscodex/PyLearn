@@ -90,6 +90,14 @@ class CreatorDashboardScreen extends ConsumerWidget {
                           label: const Text('Student Programs'),
                         ),
                       ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => context.push('/creator/student-certificates'),
+                          icon: const Icon(Icons.workspace_premium),
+                          label: const Text('Certificates'),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 32),

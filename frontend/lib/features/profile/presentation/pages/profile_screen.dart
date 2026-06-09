@@ -135,6 +135,18 @@ class ProfileScreen extends ConsumerWidget {
                       if (context.mounted) context.push('/profile/history');
                     },
                   ),
+                  ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), shape: BoxShape.circle),
+                      child: const Icon(Icons.workspace_premium, color: Colors.green),
+                    ),
+                    title: const Text('My Certificates'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      if (context.mounted) context.push('/profile/certificates');
+                    },
+                  ),
                 ] else if (role == 'creator') ...[
                   Row(
                     children: [

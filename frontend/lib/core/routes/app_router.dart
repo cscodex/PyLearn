@@ -24,6 +24,8 @@ import '../../features/creator/presentation/pages/course_editor_screen.dart';
 import '../../features/creator/presentation/pages/code_challenge_builder_screen.dart';
 import '../../features/creator/presentation/pages/student_programs_screen.dart';
 import '../../features/course/presentation/providers/saved_programs_provider.dart';
+import '../../features/profile/presentation/pages/certificates_screen.dart';
+import '../../features/creator/presentation/pages/student_certificates_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -135,6 +137,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/creator/student-programs',
         builder: (context, state) => const StudentProgramsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/certificates',
+        builder: (context, state) => const CertificatesScreen(),
+      ),
+      GoRoute(
+        path: '/creator/student-certificates',
+        builder: (context, state) => const StudentCertificatesScreen(),
       ),
     ],
   );
