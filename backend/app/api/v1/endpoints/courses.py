@@ -141,6 +141,8 @@ async def get_course_progress(
 ) -> Any:
     """Get the current user's progress for a specific course."""
     from app.models.progress import UserLessonProgress, Enrollment
+    from app.models.course import Course, Module, Chapter, Lesson
+    from sqlalchemy import func
     
     # Check enrollment
     enrollment = await db.execute(
@@ -158,9 +160,26 @@ async def get_course_progress(
     )
     completed_lesson_ids = [p.lesson_id for p in progress_records.scalars().all()]
     
+    # Dynamically recount total lessons just in case the creator added more
+    total_lessons_result = await db.execute(
+        select(func.count(Lesson.id))
+        .join(Chapter, Lesson.chapter_id == Chapter.id)
+        .join(Module, Chapter.module_id == Module.id)
+        .filter(Module.course_id == course_id)
+    )
+    total_lessons = total_lessons_result.scalar() or 1
+    
+    # Recalculate percentage
+    computed_percentage = min(100.0, (len(completed_lesson_ids) / total_lessons) * 100.0)
+    
+    # Update enrollment if it drifted
+    if abs((enrollment.progress_percentage or 0.0) - computed_percentage) > 0.01:
+        enrollment.progress_percentage = computed_percentage
+        await db.commit()
+
     return {
         "completed_lesson_ids": completed_lesson_ids,
-        "progress_percentage": enrollment.progress_percentage or 0.0
+        "progress_percentage": computed_percentage
     }
 
 @router.post("/{course_id}/lessons/{lesson_id}/complete")

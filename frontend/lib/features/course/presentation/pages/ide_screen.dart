@@ -141,7 +141,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
 
     setState(() {
       _tabs.add(newTab);
-      _currentTabIndex = _tabs.length - 1;
+      _currentTabIndex = widget.inline ? 0 : _tabs.length - 1;
       _programCounter++;
     });
   }
@@ -186,7 +186,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     });
   }
 
-  ProgramTab get _currentTab => _tabs[_currentTabIndex];
+  ProgramTab get _currentTab => widget.inline ? _tabs.first : _tabs[_currentTabIndex];
 
   Future<void> _runCode() async {
     setState(() {
@@ -371,12 +371,33 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
             height: 48,
             child: Row(
               children: [
+                if (widget.inline)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Tooltip(
+                      message: 'Save Code',
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        onPressed: _saveProgram,
+                        icon: const Icon(Icons.save, size: 16),
+                        label: const Text('Save'),
+                      ),
+                    ),
+                  ),
                 Expanded(
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _tabs.length,
+                    itemCount: widget.inline ? 2 : _tabs.length,
                     itemBuilder: (context, index) {
-                      final tab = _tabs[index];
+                      String tabTitle;
+                      if (widget.inline) {
+                        tabTitle = index == 0 ? 'Program' : 'Description';
+                      } else {
+                        tabTitle = _tabs[index].title;
+                      }
+
                       final isSelected = index == _currentTabIndex;
                       return GestureDetector(
                         onTap: () {
@@ -398,17 +419,19 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                           child: Row(
                             children: [
                               Text(
-                                tab.title,
+                                tabTitle,
                                 style: TextStyle(
                                   color: isSelected ? (isDark ? Colors.white : Colors.black) : Colors.grey,
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: () => _closeTab(index),
-                                child: Icon(Icons.close, size: 16, color: isSelected ? Colors.grey : Colors.grey.shade600),
-                              ),
+                              if (!widget.inline) ...[
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () => _closeTab(index),
+                                  child: Icon(Icons.close, size: 16, color: isSelected ? Colors.grey : Colors.grey.shade600),
+                                ),
+                              ]
                             ],
                           ),
                         ),
@@ -416,18 +439,35 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                     },
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () => _addNewTab(),
-                  tooltip: 'New Program',
-                ),
+                if (!widget.inline)
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () => _addNewTab(),
+                    tooltip: 'New Program',
+                  ),
               ],
             ),
           ),
           
           // Editor Area
           Expanded(
-            child: CodeTheme(
+            child: widget.inline && _currentTabIndex == 1 
+              ? Container(
+                  color: codeBgColor,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      widget.contentBody?['text'] ?? 'No description provided.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 1.6,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                )
+              : CodeTheme(
               data: CodeThemeData(styles: codeTheme),
               child: Container(
                 color: codeBgColor,
@@ -592,12 +632,6 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: _saveProgram,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Save'),
-                  ),
-                  const SizedBox(width: 16),
                   FilledButton.tonalIcon(
                     onPressed: _isExecuting ? null : _runCode,
                     icon: _isExecuting 

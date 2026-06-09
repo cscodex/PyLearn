@@ -2,6 +2,7 @@ import '../../../course/domain/entities/course.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
+import '../../../course/presentation/providers/course_provider.dart';
 
 class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
   Dio get _dio => ref.read(dioProvider);
@@ -21,6 +22,9 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
         final List data = response.data;
         final courses = data.map((e) => Course.fromJson(e)).toList();
         state = AsyncValue.data(courses);
+        
+        // Invalidate course player cache so preview updates instantly
+        ref.invalidate(courseDetailsProvider);
       } else {
         state = AsyncValue.error('Failed to load courses', StackTrace.current);
       }

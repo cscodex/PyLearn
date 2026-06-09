@@ -198,24 +198,22 @@ class _CoursePlayerScreenState extends ConsumerState<CoursePlayerScreen> {
       return Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(32.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(lesson.title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 24),
-                Expanded(
-                  child: Html(
-                    data: lesson.contentBody?['text'] ?? 'No content available.',
-                    style: {
-                      "h1": Style(fontSize: FontSize(24.0), fontWeight: FontWeight.bold),
-                      "h2": Style(fontSize: FontSize(20.0), fontWeight: FontWeight.bold),
-                      "p": Style(fontSize: FontSize(16.0), lineHeight: LineHeight(1.6)),
-                    },
-                  ),
+                Html(
+                  data: lesson.contentBody?['text'] ?? 'No content available.',
+                  style: {
+                    "h1": Style(fontSize: FontSize(24.0), fontWeight: FontWeight.bold),
+                    "h2": Style(fontSize: FontSize(20.0), fontWeight: FontWeight.bold),
+                    "p": Style(fontSize: FontSize(16.0), lineHeight: LineHeight(1.6)),
+                  },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -282,22 +280,7 @@ class _CoursePlayerScreenState extends ConsumerState<CoursePlayerScreen> {
             return const Center(child: Text('Lesson not found.'));
           }
 
-          return Row(
-            children: [
-              // Show permanent sidebar on desktop
-              if (MediaQuery.of(context).size.width >= 800)
-                SizedBox(
-                  width: 300,
-                  child: _buildSidebar(course),
-                ),
-              if (MediaQuery.of(context).size.width >= 800)
-                const VerticalDivider(width: 1, thickness: 1),
-              
-              Expanded(
-                child: _buildLessonContent(course, currentLesson),
-              ),
-            ],
-          );
+          return _buildLessonContent(course, currentLesson);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Error: $error')),
