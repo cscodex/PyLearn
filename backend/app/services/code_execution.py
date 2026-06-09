@@ -41,16 +41,22 @@ import sys
 import contextlib
 import traceback
 import asyncio
+import threading
+import base64
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
+# Prevent concurrent matplotlib global state mutations
+_execution_lock = threading.Lock()
+
 def _run_in_process(code: str, standard_input: str) -> Dict[str, Any]:
     start_time = time.time()
     f_out = io.StringIO()
     f_err = io.StringIO()
+    plots_list = []
     
     # Create a generator for inputs
     input_lines = standard_input.split('\n')
@@ -64,6 +70,14 @@ def _run_in_process(code: str, standard_input: str) -> Dict[str, Any]:
         except StopIteration:
             return ""
 
+    def mock_show(*args, **kwargs):
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+        plots_list.append(img_base64)
+        plt.clf()
+
     # Provide a safe globals dictionary
     safe_globals = {
         "__builtins__": __builtins__.copy(),
@@ -73,13 +87,26 @@ def _run_in_process(code: str, standard_input: str) -> Dict[str, Any]:
         "np": np
     }
 
-    try:
-        with contextlib.redirect_stdout(f_out), contextlib.redirect_stderr(f_err):
-            exec(code, safe_globals)
-        success = True
-    except Exception as e:
-        traceback.print_exc(file=f_err)
-        success = False
+    with _execution_lock:
+        original_show = plt.show
+        plt.show = mock_show
+        
+        try:
+            with contextlib.redirect_stdout(f_out), contextlib.redirect_stderr(f_err):
+                exec(code, safe_globals)
+                
+            # If they didn't call show() but plotted something, grab it
+            if plt.get_fignums():
+                mock_show()
+                
+            success = True
+        except Exception as e:
+            traceback.print_exc(file=f_err)
+            success = False
+        finally:
+            plt.show = original_show
+            plt.clf()
+            plt.close('all')
         
     execution_time = (time.time() - start_time) * 1000
     
@@ -87,7 +114,8 @@ def _run_in_process(code: str, standard_input: str) -> Dict[str, Any]:
         "stdout": f_out.getvalue(),
         "stderr": f_err.getvalue(),
         "execution_time_ms": int(execution_time),
-        "is_success": success
+        "is_success": success,
+        "plots": plots_list
     }
 
 async def execute_python_code(code: str, timeout_seconds: int = 15, standard_input: str = "") -> Dict[str, Any]:

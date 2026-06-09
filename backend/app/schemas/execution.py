@@ -12,3 +12,4 @@ class CodeExecutionResponse(BaseModel):
     execution_time_ms: int
     is_success: bool
     xp_earned: Optional[int] = 0
+    plots: Optional[list[str]] = []

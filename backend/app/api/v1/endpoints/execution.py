@@ -33,5 +33,6 @@ async def execute_code(
         stderr=result["stderr"],
         execution_time_ms=result["execution_time_ms"],
         is_success=result["is_success"],
-        xp_earned=xp_earned
+        xp_earned=xp_earned,
+        plots=result.get("plots", [])
     )
