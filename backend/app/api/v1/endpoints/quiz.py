@@ -65,10 +65,18 @@ async def get_quiz(
             # Reconstruct submission data
             answers = {}
             score = 0
+            
+            # Sort subs by submitted_at desc to get latest
+            subs.sort(key=lambda x: x.submitted_at, reverse=True)
+            seen_questions = set()
+            
             for s in subs:
+                if s.question_id in seen_questions:
+                    continue
+                seen_questions.add(s.question_id)
                 if s.answer_data and "selected_option_id" in s.answer_data:
                     answers[str(s.question_id)] = s.answer_data["selected_option_id"]
-                score += (s.score or 0)
+                score += float(s.score or 0)
             
             # total possible points
             total_pts = sum(q.points for q in questions)

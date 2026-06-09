@@ -122,19 +122,10 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
             pAnswers.forEach((k, v) {
               _answers[int.parse(k)] = v as int;
             });
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() {
-                  _result = QuizSubmissionResult(
-                    score: pSub['score'] ?? 0,
-                    passed: pSub['passed'] ?? false,
-                    xpEarned: 0,
-                    feedback: "You previously scored ${pSub['score']}% on this quiz.",
-                  );
-                });
-              }
-            });
+            // We do NOT set _result here anymore so they can see their responses!
           }
+
+        if (quiz.questions.isEmpty) {
 
         if (quiz.questions.isEmpty) {
           return Scaffold(
@@ -159,13 +150,37 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
               ),
             ),
           ),
+
           body: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (quiz.previousSubmission != null && _result == null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: theme.colorScheme.primary.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: theme.colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Your previous score: ${quiz.previousSubmission!['score']}%. You can review your answers or retake the quiz.',
+                            style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Text(
                   'Question ${_currentQuestionIndex + 1} of ${quiz.questions.length}',
+
                   style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary),
                 ),
                 const SizedBox(height: 16),
