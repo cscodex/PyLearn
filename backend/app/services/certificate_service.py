@@ -61,10 +61,10 @@ def generate_certificate_image(
     draw.rectangle([70, 70, width-70, height-70], outline=gold_color, width=1)
 
     # --- Fonts ---
-    title_font = _get_font("PlayfairDisplay-Bold.ttf", 90)
+    title_font = _get_font("PlayfairDisplay-Bold.ttf", 120)
     subtitle_font = _get_font("Roboto-Bold.ttf", 25)
-    name_font = _get_font("GreatVibes-Regular.ttf", 120)
-    course_font = _get_font("PlayfairDisplay-Bold.ttf", 80)
+    name_font = _get_font("GreatVibes-Regular.ttf", 160)
+    course_font = _get_font("PlayfairDisplay-Bold.ttf", 120)
     stat_font = _get_font("Roboto-Regular.ttf", 20)
     stat_bold_font = _get_font("Roboto-Bold.ttf", 20)
     signature_font = _get_font("GreatVibes-Regular.ttf", 60)
