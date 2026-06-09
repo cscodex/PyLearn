@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
@@ -52,6 +53,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   bool _isExecuting = false;
   String _output = '';
   bool _isSuccess = false;
+  List<String> _plots = [];
   CodeFontSize _fontSize = CodeFontSize.medium;
   double _terminalHeight = 250.0;
   int _programCounter = 1;
@@ -217,6 +219,13 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
         _output = stdout;
       }
       _output += '\n\n[Finished in ${timeMs}ms]';
+      
+      final rawPlots = result['plots'] as List<dynamic>?;
+      if (rawPlots != null) {
+        _plots = rawPlots.map((e) => e.toString()).toList();
+      } else {
+        _plots = [];
+      }
     });
   }
 
@@ -609,13 +618,28 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16.0),
-                    child: SelectableText(
-                      _output.isEmpty ? 'Ready.' : _output,
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        color: _isSuccess ? Colors.green.shade400 : (_output.isEmpty ? Colors.grey : Colors.red.shade400),
-                        fontSize: 14,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SelectableText(
+                          _output.isEmpty ? 'Ready.' : _output,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            color: _isSuccess ? Colors.green.shade400 : (_output.isEmpty ? Colors.grey : Colors.red.shade400),
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (_plots.isNotEmpty)
+                          ..._plots.map((base64String) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 16.0),
+                              child: Image.memory(
+                                base64Decode(base64String),
+                                errorBuilder: (context, error, stackTrace) => const Text('Error loading plot', style: TextStyle(color: Colors.red)),
+                              ),
+                            );
+                          }),
+                      ],
                     ),
                   ),
                 ),
