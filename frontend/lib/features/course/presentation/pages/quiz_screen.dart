@@ -114,18 +114,15 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
 
     return quizAsync.when(
       data: (quiz) {
-
-          if (quiz.previousSubmission != null && _result == null && _answers.isEmpty) {
-            // Restore previous submission state so user can view their marks
-            final pSub = quiz.previousSubmission!;
-            final pAnswers = pSub['answers'] as Map<String, dynamic>? ?? {};
-            pAnswers.forEach((k, v) {
-              _answers[int.parse(k)] = v as int;
-            });
-            // We do NOT set _result here anymore so they can see their responses!
-          }
-
-        if (quiz.questions.isEmpty) {
+        if (quiz.previousSubmission != null && _result == null && _answers.isEmpty) {
+          // Restore previous submission state so user can view their marks
+          final pSub = quiz.previousSubmission!;
+          final pAnswers = pSub['answers'] as Map<String, dynamic>? ?? {};
+          pAnswers.forEach((k, v) {
+            _answers[int.parse(k)] = v as int;
+          });
+          // We do NOT set _result here anymore so they can see their responses!
+        }
 
         if (quiz.questions.isEmpty) {
           return Scaffold(
