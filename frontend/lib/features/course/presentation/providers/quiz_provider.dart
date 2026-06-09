@@ -17,7 +17,7 @@ class QuizService {
     final dio = ref.read(dioProvider);
     final response = await dio.post('/quiz/submit', data: {
       'lesson_id': lessonId,
-      'answers': answers,
+      'answers': answers.map((k, v) => MapEntry(k.toString(), v)),
     });
     return QuizSubmissionResult.fromJson(response.data);
   }
