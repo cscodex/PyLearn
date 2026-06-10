@@ -129,6 +129,8 @@ async def submit_quiz(
     for q in questions:
         total_possible_points += q.points
         user_answer_id = request.answers.get(q.id)
+        if user_answer_id is None:
+            user_answer_id = request.answers.get(str(q.id))
         
         is_correct = False
         if user_answer_id is not None:
