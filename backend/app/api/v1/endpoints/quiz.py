@@ -114,7 +114,17 @@ async def submit_quiz(
 
     total_possible_points = 0
     earned_points = 0
-    xp_earned = 0
+    total_xp_awarded_this_time = 0
+
+    # Fetch previous submissions to prevent double-dipping XP
+    question_ids = [q.id for q in questions]
+    prev_subs_result = await db.execute(
+        select(QuizSubmission)
+        .where(QuizSubmission.user_id == current_user.id)
+        .where(QuizSubmission.question_id.in_(question_ids))
+    )
+    prev_subs = prev_subs_result.scalars().all()
+    answered_correctly = set(s.question_id for s in prev_subs if s.is_correct)
 
     for q in questions:
         total_possible_points += q.points
@@ -127,8 +137,14 @@ async def submit_quiz(
                 if opt.id == user_answer_id and opt.is_correct:
                     is_correct = True
                     earned_points += q.points
-                    xp_earned += q.points * 5  # 5 XP per point
                     break
+        
+        # Calculate XP to award
+        question_xp = q.points * 5 if is_correct else 0
+        new_xp_to_award = 0
+        if is_correct and q.id not in answered_correctly:
+            new_xp_to_award = question_xp
+            total_xp_awarded_this_time += new_xp_to_award
         
         # Save submission for each question
         submission = QuizSubmission(
@@ -137,7 +153,7 @@ async def submit_quiz(
             answer_data={"selected_option_id": user_answer_id},
             is_correct=is_correct,
             score=q.points if is_correct else 0,
-            xp_earned=q.points * 5 if is_correct else 0
+            xp_earned=new_xp_to_award
         )
         db.add(submission)
 
@@ -146,7 +162,7 @@ async def submit_quiz(
     passed = score >= 70
 
     # Add XP to user
-    current_user.xp += xp_earned
+    current_user.xp += total_xp_awarded_this_time
     
     await db.commit()
 
@@ -159,6 +175,6 @@ async def submit_quiz(
     return QuizSubmissionResponse(
         score=score,
         passed=passed,
-        xp_earned=xp_earned,
+        xp_earned=total_xp_awarded_this_time,
         feedback=feedback
     )
