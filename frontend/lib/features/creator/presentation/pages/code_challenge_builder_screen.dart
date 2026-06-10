@@ -20,7 +20,22 @@ class _CodeChallengeBuilderScreenState extends ConsumerState<CodeChallengeBuilde
   @override
   void initState() {
     super.initState();
-    // Load existing content if available
+    _loadExistingContent();
+  }
+
+  @override
+  void didUpdateWidget(covariant CodeChallengeBuilderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.lessonId != widget.lessonId) {
+      // Reset controllers when navigating to a different challenge
+      _promptCtrl.clear();
+      _starterCodeCtrl.clear();
+      _solutionCodeCtrl.clear();
+      _loadExistingContent();
+    }
+  }
+
+  void _loadExistingContent() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final courses = ref.read(creatorCoursesProvider).value ?? [];
       for (var course in courses) {

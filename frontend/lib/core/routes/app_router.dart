@@ -124,11 +124,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/creator/quiz_builder/:lessonId',
-        builder: (context, state) => QuizBuilderScreen(lessonId: int.parse(state.pathParameters['lessonId']!)),
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['lessonId']!);
+          return QuizBuilderScreen(key: ValueKey('quiz_$id'), lessonId: id);
+        },
       ),
       GoRoute(
         path: '/creator/code_builder/:lessonId',
-        builder: (context, state) => CodeChallengeBuilderScreen(lessonId: int.parse(state.pathParameters['lessonId']!)),
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['lessonId']!);
+          return CodeChallengeBuilderScreen(key: ValueKey('code_$id'), lessonId: id);
+        },
       ),
       GoRoute(
         path: '/creator/enrollments',
