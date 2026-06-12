@@ -32,6 +32,7 @@ class UserProfile(Base):
     avatar_url = Column(Text, nullable=True)
     school_name = Column(String(255), nullable=True)
     grade_level = Column(String(30), nullable=True)
+    class_section = Column(String(50), nullable=True)
     bio = Column(Text, nullable=True)
     timezone = Column(String(50), default="Asia/Kolkata")
     preferred_language = Column(String(10), default="en")

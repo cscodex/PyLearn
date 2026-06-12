@@ -13,3 +13,17 @@ class CodeExecutionResponse(BaseModel):
     is_success: bool
     xp_earned: Optional[int] = 0
     plots: Optional[list[str]] = []
+
+class EvaluationRequest(BaseModel):
+    challenge_id: int
+    code: str
+
+class EvaluationResponse(BaseModel):
+    submission_id: int
+    status: str
+    score: float
+    test_cases_passed: int
+    test_cases_total: int
+    execution_time_ms: int
+    test_results: list[dict]
+    xp_earned: int

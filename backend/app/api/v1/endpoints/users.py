@@ -8,6 +8,9 @@ from app.models.progress import Enrollment
 from app.schemas.user import UserStatsResponse, UserAchievementResponse, UserHistoryResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import HTTPException
+from app.models.group import Group, GroupMember, GroupAssignment
+from app.schemas.group import GroupJoinRequest
 
 router = APIRouter()
 
@@ -24,6 +27,40 @@ async def get_my_stats(
         streak_days=current_user.streak_days,
         profile_picture_url=current_user.profile_picture_url
     )
+
+@router.post("/me/join-group", response_model=dict)
+async def join_group(
+    req: GroupJoinRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Join a group using a 6-digit join code."""
+    # Find group by join code
+    code = req.join_code.strip().upper()
+    group_res = await db.execute(select(Group).filter(Group.join_code == code))
+    group = group_res.scalars().first()
+    
+    if not group:
+        raise HTTPException(status_code=404, detail="Invalid join code.")
+        
+    # Check if already a member
+    member_res = await db.execute(select(GroupMember).filter(GroupMember.group_id == group.id, GroupMember.user_id == current_user.id))
+    if member_res.scalars().first():
+        return {"status": "success", "message": "Already a member of this group.", "group_name": group.name}
+        
+    # Join the group
+    member = GroupMember(group_id=group.id, user_id=current_user.id)
+    db.add(member)
+    
+    # Auto-enroll in mandatory courses assigned to this group
+    assignments_res = await db.execute(select(GroupAssignment).filter(GroupAssignment.group_id == group.id, GroupAssignment.assignment_type == "mandatory"))
+    for a in assignments_res.scalars().all():
+        enroll_res = await db.execute(select(Enrollment).filter(Enrollment.user_id == current_user.id, Enrollment.course_id == a.course_id))
+        if not enroll_res.scalars().first():
+            db.add(Enrollment(user_id=current_user.id, course_id=a.course_id))
+            
+    await db.commit()
+    return {"status": "success", "message": f"Successfully joined {group.name}", "group_name": group.name}
 
 @router.get("/me/achievements", response_model=List[UserAchievementResponse])
 async def get_my_achievements(

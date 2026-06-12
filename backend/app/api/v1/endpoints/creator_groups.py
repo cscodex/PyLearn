@@ -46,6 +46,13 @@ def check_creator_permission(user: User):
     if user.role not in ["creator", "admin"]:
         raise HTTPException(status_code=403, detail="Only creators and admins can perform this action")
 
+import secrets
+import string
+
+def generate_join_code(length=6):
+    alphabet = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
 @router.post("/", response_model=GroupResponse)
 async def create_group(
     group_in: GroupCreate,
@@ -55,9 +62,17 @@ async def create_group(
     """Create a new student group/classroom."""
     check_creator_permission(current_user)
     
+    # Generate unique join code
+    while True:
+        code = generate_join_code()
+        existing = await db.execute(select(Group).filter(Group.join_code == code))
+        if not existing.scalars().first():
+            break
+            
     group = Group(
         name=group_in.name,
-        creator_id=current_user.id
+        creator_id=current_user.id,
+        join_code=code
     )
     db.add(group)
     await db.commit()
@@ -68,7 +83,8 @@ async def create_group(
         name=group.name,
         creator_id=group.creator_id,
         created_at=group.created_at,
-        member_count=0
+        member_count=0,
+        join_code=group.join_code
     )
 
 @router.get("/", response_model=List[GroupResponse])
@@ -94,7 +110,8 @@ async def get_my_groups(
             name=g.name,
             creator_id=g.creator_id,
             created_at=g.created_at,
-            member_count=m_count
+            member_count=m_count,
+            join_code=g.join_code
         ))
     return response_groups
 
@@ -255,7 +272,8 @@ async def update_group(
         name=group.name,
         creator_id=group.creator_id,
         created_at=group.created_at,
-        member_count=m_count
+        member_count=m_count,
+        join_code=group.join_code
     )
 
 @router.delete("/{group_id}", response_model=dict)

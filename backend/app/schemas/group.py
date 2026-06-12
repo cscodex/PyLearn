@@ -14,12 +14,16 @@ class CamelCaseBaseModel(BaseModel):
 class GroupCreate(CamelCaseBaseModel):
     name: str
 
+class GroupJoinRequest(CamelCaseBaseModel):
+    join_code: str
+
 class GroupResponse(CamelCaseBaseModel):
     id: int
     name: str
     creator_id: uuid.UUID
-    created_at: datetime
-    member_count: Optional[int] = 0
+    created_at: Optional[datetime] = None
+    member_count: int = 0
+    join_code: Optional[str] = None
 
 class GroupStudentCreate(CamelCaseBaseModel):
     email: str
