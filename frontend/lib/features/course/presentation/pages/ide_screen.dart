@@ -848,8 +848,9 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                               ),
                             );
                           }
-                        } catch (e) {
-                          if (!mounted) return;
+                        }
+                      } catch (e) {
+                        if (!mounted) return;
                           setState(() {
                             _isExecuting = false;
                             _output = 'Evaluation failed: $e\n';
