@@ -54,6 +54,9 @@ async def read_student_programs(
             "language": program.language,
             "created_at": program.created_at,
             "updated_at": program.updated_at,
+            "lesson_id": program.lesson_id,
+            "terminal_output": program.terminal_output,
+            "plots": program.plots,
             "student_name": user.full_name,
             "student_email": user.email,
         }

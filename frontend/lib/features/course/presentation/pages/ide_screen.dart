@@ -5,6 +5,7 @@ import 'package:flutter_code_editor/flutter_code_editor.dart';
 import 'package:highlight/languages/python.dart';
 import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:flutter_highlight/themes/github.dart';
+import '../../../../core/widgets/theme_toggle_button.dart';
 import '../providers/execution_provider.dart';
 import '../providers/saved_programs_provider.dart';
 
@@ -51,7 +52,10 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   int _currentTabIndex = 0;
   
   bool _isExecuting = false;
+  bool _isLoading = false;
   String _output = '';
+  String? _savedOutputTabContent;
+  List<String> _savedPlotsTabContent = [];
   bool _isSuccess = false;
   List<String> _plots = [];
   CodeFontSize _fontSize = CodeFontSize.medium;
@@ -76,6 +80,34 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     });
   }
 
+  void _showIslandNotification(String message) {
+    final overlay = Overlay.of(context);
+    final entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 60,
+        left: 50,
+        right: 50,
+        child: Material(
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Text(message, style: const TextStyle(color: Colors.white, fontSize: 14)),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(entry);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) entry.remove();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -85,19 +117,31 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
         title: widget.initialSavedProgram!.title,
         savedId: widget.initialSavedProgram!.id,
       );
+      _output = widget.initialSavedProgram!.terminalOutput ?? '';
+      if (widget.initialSavedProgram!.plots != null) {
+        _plots = widget.initialSavedProgram!.plots!.map((e) => e.toString()).toList();
+      }
     } else if (widget.lessonId != null && widget.inline) {
       // It's a lesson, we should fetch it.
+      _isLoading = true;
       _addNewTab(initialCode: "Loading saved program...");
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final service = ref.read(savedProgramsServiceProvider);
         final savedProgram = await service.getProgramForLesson(widget.lessonId!);
         if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
           if (savedProgram != null) {
             setState(() {
-              _tabs[0].title = savedProgram.title;
-              _tabs[0].savedId = savedProgram.id;
               _tabs[0].controller.text = savedProgram.code;
+              _tabs[0].savedId = savedProgram.id;
               _tabs[0].lastSavedCode = savedProgram.code;
+              _savedOutputTabContent = savedProgram.terminalOutput;
+              _isSuccess = true;
+              if (savedProgram.plots != null) {
+                _savedPlotsTabContent = savedProgram.plots!.map((e) => e.toString()).toList();
+              }
             });
           } else {
             setState(() {
@@ -114,17 +158,25 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
 
   @override
   void dispose() {
+    // Auto-save when navigating away
+    if (widget.inline && widget.lessonId != null) {
+      if (_output.isNotEmpty) {
+        _savedOutputTabContent = _output;
+        _savedPlotsTabContent = List.from(_plots);
+      }
+      _saveProgram(); // Fire and forget
+    }
+    
     for (var tab in _tabs) {
       tab.dispose();
     }
+    _output = ''; // Clear output state
     super.dispose();
   }
 
   void _addNewTab({String? initialCode, String? title, int? savedId}) {
     if (_tabs.length >= 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 5 tabs allowed. Please close one to open a new program.')),
-      );
+      _showIslandNotification('Maximum 5 tabs allowed. Please close one to open a new program.');
       return;
     }
 
@@ -150,9 +202,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
 
   Future<void> _closeTab(int index) async {
     if (_tabs.length == 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot close the last tab. Clear the code instead.')),
-      );
+      _showIslandNotification('Cannot close the last tab. Clear the code instead.');
       return;
     }
 
@@ -190,6 +240,8 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
 
   ProgramTab get _currentTab => widget.inline ? _tabs.first : _tabs[_currentTabIndex];
 
+
+
   Future<void> _runCode() async {
     setState(() {
       _isExecuting = true;
@@ -226,7 +278,14 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
       } else {
         _plots = [];
       }
+      
+      // Auto-save output and code directly on run
+      _savedOutputTabContent = _output;
+      _savedPlotsTabContent = List.from(_plots);
     });
+    
+    // Perform the save
+    await _saveProgram();
   }
 
   Future<void> _saveProgram() async {
@@ -234,16 +293,14 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     
     // If it's already a saved program, update it silently
     if (_currentTab.savedId != null) {
-      final success = await service.updateProgram(_currentTab.savedId!, _currentTab.title, _currentTab.controller.text, lessonId: widget.lessonId);
+      final success = await service.updateProgram(_currentTab.savedId!, _currentTab.title, _currentTab.controller.text, lessonId: widget.lessonId, terminalOutput: _savedOutputTabContent, plots: _savedPlotsTabContent);
       if (mounted) {
         if (success) {
           setState(() {
             _currentTab.lastSavedCode = _currentTab.controller.text;
           });
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(success ? 'Updated successfully!' : 'Failed to update program.')),
-        );
+        _showIslandNotification(success ? 'Updated successfully!' : 'Failed to update program.');
       }
       return;
     }
@@ -275,7 +332,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     }
 
     if (title != null && title.isNotEmpty) {
-      final savedProgram = await service.saveProgram(title, _currentTab.controller.text, lessonId: widget.lessonId);
+      final savedProgram = await service.saveProgram(title, _currentTab.controller.text, lessonId: widget.lessonId, terminalOutput: _savedOutputTabContent, plots: _savedPlotsTabContent);
       if (mounted) {
         if (savedProgram != null) {
           setState(() {
@@ -283,15 +340,11 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
             _currentTab.savedId = savedProgram.id;
             _currentTab.lastSavedCode = _currentTab.controller.text;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Saved successfully!')),
-          );
+          _showIslandNotification('Saved successfully!');
           // Invalidate to refresh the list
           ref.invalidate(savedProgramsProvider);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to save. You may have reached the 100 program limit.')),
-          );
+          _showIslandNotification('Failed to save. You may have reached the 100 program limit.');
         }
       }
     }
@@ -320,6 +373,10 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
             _currentTab.savedId = selectedProgram.id;
             _currentTab.controller.text = selectedProgram.code;
             _currentTab.lastSavedCode = selectedProgram.code;
+            _output = selectedProgram.terminalOutput ?? '';
+            if (selectedProgram.plots != null) {
+              _plots = selectedProgram.plots!.map((e) => e.toString()).toList();
+            }
           });
         } else {
           _addNewTab(
@@ -327,6 +384,12 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
             title: selectedProgram.title,
             savedId: selectedProgram.id,
           );
+          setState(() {
+            _output = selectedProgram.terminalOutput ?? '';
+            if (selectedProgram.plots != null) {
+              _plots = selectedProgram.plots!.map((e) => e.toString()).toList();
+            }
+          });
         }
       }
     });
@@ -380,29 +443,16 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
             height: 48,
             child: Row(
               children: [
-                if (widget.inline)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Tooltip(
-                      message: 'Save Code',
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                        ),
-                        onPressed: _saveProgram,
-                        icon: const Icon(Icons.save, size: 16),
-                        label: const Text('Save'),
-                      ),
-                    ),
-                  ),
                 Expanded(
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: widget.inline ? 2 : _tabs.length,
+                    itemCount: widget.inline ? 3 : _tabs.length,
                     itemBuilder: (context, index) {
                       String tabTitle;
                       if (widget.inline) {
-                        tabTitle = index == 0 ? 'Program' : 'Description';
+                        if (index == 0) tabTitle = 'Description';
+                        else if (index == 1) tabTitle = 'Program';
+                        else tabTitle = 'Output';
                       } else {
                         tabTitle = _tabs[index].title;
                       }
@@ -454,13 +504,24 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                     onPressed: () => _addNewTab(),
                     tooltip: 'New Program',
                   ),
+                if (widget.inline)
+                  IconButton(
+                    icon: const Icon(Icons.text_fields),
+                    onPressed: _toggleFontSize,
+                    tooltip: 'Toggle Font Size',
+                  ),
+                if (widget.inline)
+                  const ThemeToggleButton(),
+                const SizedBox(width: 8),
               ],
             ),
           ),
           
           // Editor Area
           Expanded(
-            child: widget.inline && _currentTabIndex == 1 
+            child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : widget.inline && _currentTabIndex == 0 
               ? Container(
                   color: codeBgColor,
                   width: double.infinity,
@@ -473,6 +534,38 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                         height: 1.6,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
+                    ),
+                  ),
+                )
+              : widget.inline && _currentTabIndex == 2
+              ? Container(
+                  color: codeBgColor,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SelectableText(
+                          _savedOutputTabContent ?? 'No saved output.',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 14,
+                            height: 1.6,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        if (_savedPlotsTabContent.isNotEmpty)
+                          ..._savedPlotsTabContent.map((base64String) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 16.0),
+                              child: Image.memory(
+                                base64Decode(base64String),
+                                errorBuilder: (context, error, stackTrace) => const Text('Error loading plot', style: TextStyle(color: Colors.red)),
+                              ),
+                            );
+                          }),
+                      ],
                     ),
                   ),
                 )
@@ -494,16 +587,6 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                           showErrors: false,
                           showFoldingHandles: false,
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: IconButton(
-                        icon: const Icon(Icons.text_fields),
-                        color: isDark ? Colors.white54 : Colors.black54,
-                        onPressed: _toggleFontSize,
-                        tooltip: 'Toggle Font Size',
                       ),
                     ),
                   ],
@@ -578,18 +661,35 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             color: theme.colorScheme.surface,
-            child: TextField(
-              controller: _currentTab.inputController,
-              decoration: const InputDecoration(
-                labelText: 'Standard Input (for input() function)',
-                labelStyle: TextStyle(fontSize: 12),
-                border: OutlineInputBorder(),
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              ),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              maxLines: 2,
-              minLines: 1,
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: _isExecuting ? null : _runCode,
+                  icon: _isExecuting 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.play_arrow, color: Colors.green),
+                  tooltip: 'Run Code',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.green.withValues(alpha: 0.1),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _currentTab.inputController,
+                    decoration: const InputDecoration(
+                      labelText: 'Standard Input (for input() function)',
+                      labelStyle: TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    maxLines: 2,
+                    minLines: 1,
+                  ),
+                ),
+              ],
             ),
           ),
           
@@ -649,30 +749,21 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
               ],
             ),
           ),
-          if (widget.inline)
+          if (widget.inline && widget.onComplete != null)
             Container(
               padding: const EdgeInsets.all(16),
               color: theme.colorScheme.surface,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _isExecuting ? null : _runCode,
-                    icon: _isExecuting 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.play_arrow),
-                    label: const Text('Run Code'),
-                  ),
-                  const SizedBox(width: 16),
-                  if (widget.onComplete != null)
-                    FilledButton(
-                      onPressed: () async {
-                        await _saveProgram();
-                        widget.onComplete!();
-                      },
-                      child: const Text('Mark Complete & Continue'),
-                    ),
-                ],
+              child: Center(
+                child: FilledButton(
+                  onPressed: () async {
+                    if (_output.isEmpty) {
+                      _showIslandNotification('Please run the program first!');
+                      return;
+                    }
+                    widget.onComplete!();
+                  },
+                  child: const Text('Mark Complete & Continue'),
+                ),
               ),
             ),
         ],

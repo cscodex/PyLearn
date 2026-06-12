@@ -204,7 +204,15 @@ async def complete_lesson(
     enrollment = enrollment.scalars().first()
     
     if not enrollment:
-        raise HTTPException(status_code=400, detail="Not enrolled in this course")
+        # Auto-enroll the user if they aren't enrolled yet but are marking a lesson complete
+        enrollment = Enrollment(
+            user_id=current_user.id,
+            course_id=course_id,
+            progress_percentage=0.0
+        )
+        db.add(enrollment)
+        await db.commit()
+        await db.refresh(enrollment)
         
     # Check if progress record exists
     progress_result = await db.execute(

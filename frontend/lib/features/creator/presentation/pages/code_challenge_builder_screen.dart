@@ -92,11 +92,11 @@ class _CodeChallengeBuilderScreenState extends ConsumerState<CodeChallengeBuilde
   void _parseAIChallenge(String text) {
     // Basic heuristic parser for ChatGPT output
     // Looking for "Prompt:", "Starter Code:", and "Solution Code:"
-    final promptMatch = RegExp(r'Prompt:\s*(.*?)(?=\nStarter Code:|\nSolution Code:|$)', dotAll: true).firstMatch(text);
-    final starterMatch = RegExp(r'Starter Code:\s*```[a-z]*\n?(.*?)(?=\n```\n|\nSolution Code:|$)', dotAll: true).firstMatch(text) ?? 
-                         RegExp(r'Starter Code:\s*(.*?)(?=\nSolution Code:|$)', dotAll: true).firstMatch(text);
-    final solutionMatch = RegExp(r'Solution Code:\s*```[a-z]*\n?(.*?)(?=\n```\n|$)', dotAll: true).firstMatch(text) ??
-                          RegExp(r'Solution Code:\s*(.*?)$', dotAll: true).firstMatch(text);
+    final promptMatch = RegExp(r'Prompt:\s*(.*?)(?=\nStarter Code:|\nSolution Code:|$)', dotAll: true, caseSensitive: false).firstMatch(text);
+    final starterMatch = RegExp(r'Starter Code:\s*```[a-z]*\n?(.*?)(?=\n```\n|\nSolution Code:|$)', dotAll: true, caseSensitive: false).firstMatch(text) ?? 
+                         RegExp(r'Starter Code:\s*(.*?)(?=\nSolution Code:|$)', dotAll: true, caseSensitive: false).firstMatch(text);
+    final solutionMatch = RegExp(r'Solution Code:\s*```[a-z]*\n?(.*?)(?=\n```\n|$)', dotAll: true, caseSensitive: false).firstMatch(text) ??
+                          RegExp(r'Solution Code:\s*(.*?)$', dotAll: true, caseSensitive: false).firstMatch(text);
 
     if (promptMatch != null) {
       _promptCtrl.text = promptMatch.group(1)?.trim() ?? '';

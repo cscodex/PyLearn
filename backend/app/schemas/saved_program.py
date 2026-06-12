@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Any
 from datetime import datetime
 
 class SavedProgramBase(BaseModel):
@@ -7,6 +7,8 @@ class SavedProgramBase(BaseModel):
     code: str = Field(..., max_length=65536) # 64KB
     language: Optional[str] = "python"
     lesson_id: Optional[int] = None
+    terminal_output: Optional[str] = None
+    plots: Optional[List[Any]] = None
 
 class SavedProgramCreate(SavedProgramBase):
     pass
@@ -15,6 +17,9 @@ class SavedProgramUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=100)
     code: Optional[str] = Field(None, max_length=65536)
     language: Optional[str] = None
+    lesson_id: Optional[int] = None
+    terminal_output: Optional[str] = None
+    plots: Optional[List[Any]] = None
 
 class SavedProgramInDBBase(SavedProgramBase):
     id: int

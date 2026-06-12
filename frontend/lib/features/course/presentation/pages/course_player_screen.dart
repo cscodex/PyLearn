@@ -229,13 +229,19 @@ class _CoursePlayerScreenState extends ConsumerState<CoursePlayerScreen> {
       );
     } else if (lesson.contentType == 'code_challenge') {
       return IdeScreen(
+        key: ValueKey('ide_${lesson.id}'),
         lessonId: lesson.id, 
         inline: true, 
         contentBody: lesson.contentBody,
         onComplete: () => _markCompleteAndNext(course, lesson)
       );
     } else if (lesson.contentType == 'quiz') {
-      return QuizScreen(lessonId: lesson.id, inline: true, onComplete: () => _markCompleteAndNext(course, lesson));
+      return QuizScreen(
+        key: ValueKey('quiz_${lesson.id}'),
+        lessonId: lesson.id, 
+        inline: true, 
+        onComplete: () => _markCompleteAndNext(course, lesson)
+      );
     }
     
     return const Center(child: Text('Unknown content type'));

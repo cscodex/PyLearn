@@ -10,6 +10,8 @@ class SavedProgram {
   final String createdAt;
   final String? studentName;
   final String? studentEmail;
+  final String? terminalOutput;
+  final List<dynamic>? plots;
 
   SavedProgram({
     required this.id,
@@ -19,6 +21,8 @@ class SavedProgram {
     required this.createdAt,
     this.studentName,
     this.studentEmail,
+    this.terminalOutput,
+    this.plots,
   });
 
   factory SavedProgram.fromJson(Map<String, dynamic> json) {
@@ -30,6 +34,8 @@ class SavedProgram {
       createdAt: json['created_at'],
       studentName: json['student_name'],
       studentEmail: json['student_email'],
+      terminalOutput: json['terminal_output'],
+      plots: json['plots'] != null ? List<dynamic>.from(json['plots']) : null,
     );
   }
 }
@@ -47,13 +53,15 @@ class SavedProgramsService {
 
   SavedProgramsService(this.ref);
 
-  Future<SavedProgram?> saveProgram(String title, String code, {int? lessonId}) async {
+  Future<SavedProgram?> saveProgram(String title, String code, {int? lessonId, String? terminalOutput, List<dynamic>? plots}) async {
     try {
       final dio = ref.read(dioProvider);
       final response = await dio.post('/saved-programs/', data: {
         'title': title,
         'code': code,
         if (lessonId != null) 'lesson_id': lessonId,
+        if (terminalOutput != null) 'terminal_output': terminalOutput,
+        if (plots != null) 'plots': plots,
       });
       ref.invalidate(savedProgramsProvider);
       return SavedProgram.fromJson(response.data);
@@ -62,13 +70,15 @@ class SavedProgramsService {
     }
   }
 
-  Future<bool> updateProgram(int id, String title, String code, {int? lessonId}) async {
+  Future<bool> updateProgram(int id, String title, String code, {int? lessonId, String? terminalOutput, List<dynamic>? plots}) async {
     try {
       final dio = ref.read(dioProvider);
       await dio.put('/saved-programs/$id', data: {
         'title': title,
         'code': code,
         if (lessonId != null) 'lesson_id': lessonId,
+        if (terminalOutput != null) 'terminal_output': terminalOutput,
+        if (plots != null) 'plots': plots,
       });
       ref.invalidate(savedProgramsProvider);
       return true;

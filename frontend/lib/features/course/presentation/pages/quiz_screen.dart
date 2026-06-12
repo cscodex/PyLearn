@@ -40,6 +40,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
       
       // Update profile stats if available
       ref.invalidate(profileProvider);
+      ref.invalidate(quizProvider(widget.lessonId));
 
       setState(() {
         _result = result;
