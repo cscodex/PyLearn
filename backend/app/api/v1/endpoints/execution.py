@@ -6,6 +6,7 @@ from app.api import deps
 from app.models.user import User
 from app.schemas.execution import CodeExecutionRequest, CodeExecutionResponse, EvaluationRequest, EvaluationResponse
 from app.services.code_execution import execute_python_code
+from app.services.ai_evaluator import ai_evaluator
 from app.models.assessment import CodingChallenge, TestCase, CodeSubmission
 from sqlalchemy import select
 
@@ -118,18 +119,36 @@ async def evaluate_code(
         actual = str(result["stdout"]).strip()
         
         is_passed = result["is_success"] and expected == actual
+        ai_reason = None
+        
+        # If exact match fails but code ran successfully, try AI evaluation!
+        if not is_passed and result["is_success"]:
+            ai_result = await ai_evaluator.evaluate(
+                prompt=challenge.description,
+                expected_output=expected,
+                actual_output=actual,
+                source_code=request.code
+            )
+            is_passed = ai_result.get("passed", False)
+            ai_reason = ai_result.get("reason", None)
+
         if is_passed:
             passed_cases += 1
             
         total_time_ms += result["execution_time_ms"]
         
+        # Determine error string
+        error_msg = result["stderr"] if not result["is_success"] else None
+        if not is_passed and not error_msg and ai_reason:
+            error_msg = f"AI Feedback: {ai_reason}"
+
         test_results.append({
             "test_case_id": tc.id,
             "passed": is_passed,
             "expected_output": expected if not tc.is_hidden else "Hidden",
             "actual_output": actual if not tc.is_hidden else ("Hidden" if not result["stderr"] else result["stderr"]),
             "is_hidden": tc.is_hidden,
-            "error": result["stderr"] if not result["is_success"] else None
+            "error": error_msg
         })
         
     # 3. Calculate score and XP

@@ -786,19 +786,20 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                           _output = 'Evaluating against test cases...\n';
                         });
 
-                        final service = ref.read(executionProvider);
-                        final result = await service.evaluateCode(
-                          _currentTab.controller.text, 
-                          lessonId: widget.lessonId,
-                        );
+                        try {
+                          final service = ref.read(executionProvider);
+                          final result = await service.evaluateCode(
+                            _currentTab.controller.text, 
+                            lessonId: widget.lessonId,
+                          );
 
-                        if (!mounted) return;
+                          if (!mounted) return;
 
-                        setState(() {
-                          _isExecuting = false;
-                        });
+                          setState(() {
+                            _isExecuting = false;
+                          });
 
-                        if (result['status'] == 'completed') {
+                          if (result['status'] == 'completed') {
                           _showIslandNotification('All test cases passed! Assignment graded.');
                           widget.onComplete!();
                         } else {
@@ -847,6 +848,13 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                               ),
                             );
                           }
+                        } catch (e) {
+                          if (!mounted) return;
+                          setState(() {
+                            _isExecuting = false;
+                            _output = 'Evaluation failed: $e\n';
+                          });
+                          _showIslandNotification('Failed to submit assignment.');
                         }
                       },
                       child: const Text('Submit Assignment'),
