@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from app.models.group import GroupMember
 from typing import Any, List, Dict
 import pandas as pd
 import io
@@ -20,6 +21,7 @@ def generate_password(length=10):
 @router.post("/import-students")
 async def import_students(
     file: UploadFile = File(...),
+    group_id: int = Form(None),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
@@ -84,6 +86,10 @@ async def import_students(
             "password": password,
             "class_section": class_section
         })
+        
+        if group_id:
+            db.add(GroupMember(group_id=group_id, user_id=new_user.id))
+            await db.commit()
         
     return {"message": f"Successfully imported {len(imported_users)} students", "users": imported_users}
 
