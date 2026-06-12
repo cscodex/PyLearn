@@ -108,9 +108,12 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     });
   }
 
+  late final SavedProgramsService _savedProgramsService;
+
   @override
   void initState() {
     super.initState();
+    _savedProgramsService = ref.read(savedProgramsServiceProvider);
     if (widget.initialSavedProgram != null) {
       _addNewTab(
         initialCode: widget.initialSavedProgram!.code,
@@ -289,7 +292,9 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   }
 
   Future<void> _saveProgram() async {
-    final service = ref.read(savedProgramsServiceProvider);
+    if (_currentTab.controller.text == _currentTab.lastSavedCode && _savedOutputTabContent == _output) return;
+
+    final service = _savedProgramsService;
     
     // If it's already a saved program, update it silently
     if (_currentTab.savedId != null) {
@@ -754,15 +759,99 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
               padding: const EdgeInsets.all(16),
               color: theme.colorScheme.surface,
               child: Center(
-                child: FilledButton(
-                  onPressed: () async {
-                    if (_output.isEmpty) {
-                      _showIslandNotification('Please run the program first!');
-                      return;
-                    }
-                    widget.onComplete!();
-                  },
-                  child: const Text('Mark Complete & Continue'),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FilledButton.tonal(
+                      onPressed: () async {
+                        if (_output.isEmpty) {
+                          _showIslandNotification('Please run the program first!');
+                          return;
+                        }
+                        widget.onComplete!();
+                      },
+                      child: const Text('Mark Complete (No Grade)'),
+                    ),
+                    const SizedBox(width: 16),
+                    FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+                      onPressed: () async {
+                        if (widget.lessonId == null) {
+                          _showIslandNotification('Cannot submit this assignment');
+                          return;
+                        }
+                        
+                        setState(() {
+                          _isExecuting = true;
+                          _output = 'Evaluating against test cases...\n';
+                        });
+
+                        final service = ref.read(executionProvider);
+                        final result = await service.evaluateCode(
+                          _currentTab.controller.text, 
+                          lessonId: widget.lessonId,
+                        );
+
+                        if (!mounted) return;
+
+                        setState(() {
+                          _isExecuting = false;
+                        });
+
+                        if (result['status'] == 'completed') {
+                          _showIslandNotification('All test cases passed! Assignment graded.');
+                          widget.onComplete!();
+                        } else {
+                          final score = result['score'];
+                          final error = result['error'];
+                          final passed = result['test_cases_passed'];
+                          final total = result['test_cases_total'];
+                          
+                          if (error != null && passed == null) {
+                            _showIslandNotification('Evaluation failed: $error');
+                          } else {
+                            _showIslandNotification('Passed $passed/$total test cases. Score: $score');
+                          }
+                          
+                          // Show detailed results if available
+                          final testResults = result['test_results'] as List<dynamic>?;
+                          if (testResults != null && testResults.isNotEmpty) {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Evaluation Results'),
+                                content: SizedBox(
+                                  width: double.maxFinite,
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: testResults.length,
+                                    itemBuilder: (context, i) {
+                                      final tr = testResults[i];
+                                      final bool passed = tr['passed'] ?? false;
+                                      return ListTile(
+                                        leading: Icon(
+                                          passed ? Icons.check_circle : Icons.error,
+                                          color: passed ? Colors.green : Colors.red,
+                                        ),
+                                        title: Text('Test Case ${i+1}'),
+                                        subtitle: Text(
+                                          'Expected: ${tr['expected_output']}\nActual: ${tr['actual_output']}'
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                                ],
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Submit Assignment'),
+                    ),
+                  ],
                 ),
               ),
             ),

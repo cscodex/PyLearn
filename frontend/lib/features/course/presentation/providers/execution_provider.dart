@@ -29,4 +29,30 @@ class ExecutionService {
       };
     }
   }
+
+  Future<Map<String, dynamic>> evaluateCode(String code, {int? challengeId, int? lessonId}) async {
+    try {
+      final response = await dio.post('/execute/evaluate', data: {
+        'code': code,
+        if (challengeId != null) 'challenge_id': challengeId,
+        if (lessonId != null) 'lesson_id': lessonId,
+      });
+      return response.data;
+    } catch (e) {
+      if (e is DioException && e.response != null) {
+        return {
+          'status': 'failed',
+          'score': 0,
+          'error': e.response?.data?['detail'] ?? 'Evaluation Error',
+          'test_results': [],
+        };
+      }
+      return {
+        'status': 'failed',
+        'score': 0,
+        'error': 'Network Error: $e',
+        'test_results': [],
+      };
+    }
+  }
 }

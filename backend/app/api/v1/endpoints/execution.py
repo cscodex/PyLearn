@@ -48,7 +48,13 @@ async def evaluate_code(
     """Evaluate python code against hidden test cases."""
     
     # 1. Fetch challenge and test cases
-    chal_res = await db.execute(select(CodingChallenge).filter(CodingChallenge.id == request.challenge_id))
+    if request.challenge_id:
+        chal_res = await db.execute(select(CodingChallenge).filter(CodingChallenge.id == request.challenge_id))
+    elif request.lesson_id:
+        chal_res = await db.execute(select(CodingChallenge).filter(CodingChallenge.lesson_id == request.lesson_id))
+    else:
+        raise HTTPException(status_code=400, detail="Must provide either challenge_id or lesson_id")
+        
     challenge = chal_res.scalars().first()
     if not challenge:
         raise HTTPException(status_code=404, detail="Coding challenge not found")

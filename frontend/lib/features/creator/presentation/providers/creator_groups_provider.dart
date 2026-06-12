@@ -7,12 +7,14 @@ class CreatorGroup {
   final String name;
   final String creatorId;
   final int memberCount;
+  final String? joinCode;
 
   CreatorGroup({
     required this.id,
     required this.name,
     required this.creatorId,
     required this.memberCount,
+    this.joinCode,
   });
 
   factory CreatorGroup.fromJson(Map<String, dynamic> json) {
@@ -21,6 +23,7 @@ class CreatorGroup {
       name: json['name'],
       creatorId: json['creatorId'] ?? json['creator_id'] ?? '',
       memberCount: json['memberCount'] ?? json['member_count'] ?? 0,
+      joinCode: json['joinCode'] ?? json['join_code'],
     );
   }
 }
@@ -210,6 +213,29 @@ class CreatorGroupsNotifier extends Notifier<AsyncValue<List<CreatorGroup>>> {
       return [];
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>?> importStudentsCSV(int groupId, String filePath) async {
+    try {
+      final formData = FormData.fromMap({
+        'group_id': groupId.toString(),
+        'file': await MultipartFile.fromFile(filePath),
+      });
+
+      final response = await _dio.post(
+        '/admin/import-students',
+        data: formData,
+      );
+
+      if (response.statusCode == 200) {
+        fetchGroups();
+        final usersList = response.data['users'] as List;
+        return usersList.map((e) => e as Map<String, dynamic>).toList();
+      }
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 }

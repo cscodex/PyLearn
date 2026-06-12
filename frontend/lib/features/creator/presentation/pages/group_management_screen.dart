@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/creator_groups_provider.dart';
 import 'group_details_screen.dart';
+import 'package:file_picker/file_picker.dart';
 
 class GroupManagementScreen extends ConsumerWidget {
   const GroupManagementScreen({super.key});
@@ -34,13 +35,19 @@ class GroupManagementScreen extends ConsumerWidget {
               return Card(
                 child: ListTile(
                   title: Text(group.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${group.memberCount} Students'),
+                  subtitle: Text('${group.memberCount} Students • Join Code: ${group.joinCode ?? "N/A"}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
+                        icon: const Icon(Icons.upload_file, size: 20, color: Colors.blue),
+                        onPressed: () => _importStudentsCSV(context, ref, group),
+                        tooltip: 'Import CSV',
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.edit, size: 20),
                         onPressed: () => _showEditGroupDialog(context, ref, group),
+                        tooltip: 'Edit Group',
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red, size: 20),
@@ -139,5 +146,75 @@ class GroupManagementScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _importStudentsCSV(BuildContext context, WidgetRef ref, CreatorGroup group) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Importing students...')),
+        );
+      }
+      
+      final importedUsers = await ref.read(creatorGroupsProvider.notifier).importStudentsCSV(
+        group.id, 
+        result.files.single.path!,
+      );
+      
+      if (context.mounted) {
+        if (importedUsers != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Successfully imported students.'), backgroundColor: Colors.green),
+          );
+          
+          if (importedUsers.isNotEmpty) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Generated Passwords (Testing)'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: importedUsers.length,
+                    itemBuilder: (context, index) {
+                      final u = importedUsers[index];
+                      return ListTile(
+                        title: Text(u['email'] ?? ''),
+                        subtitle: Text('Password: ${u['password'] ?? ''}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.copy),
+                          onPressed: () {
+                            // Can copy to clipboard here
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Copied ${u['email']} password')),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            );
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to import students.'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
   }
 }

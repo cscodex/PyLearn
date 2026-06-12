@@ -12,6 +12,7 @@ class SavedProgram {
   final String? studentEmail;
   final String? terminalOutput;
   final List<dynamic>? plots;
+  final int? lessonId;
 
   SavedProgram({
     required this.id,
@@ -23,6 +24,7 @@ class SavedProgram {
     this.studentEmail,
     this.terminalOutput,
     this.plots,
+    this.lessonId,
   });
 
   factory SavedProgram.fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,7 @@ class SavedProgram {
       studentEmail: json['student_email'],
       terminalOutput: json['terminal_output'],
       plots: json['plots'] != null ? List<dynamic>.from(json['plots']) : null,
+      lessonId: json['lesson_id'],
     );
   }
 }

@@ -15,7 +15,8 @@ class CodeExecutionResponse(BaseModel):
     plots: Optional[list[str]] = []
 
 class EvaluationRequest(BaseModel):
-    challenge_id: int
+    challenge_id: Optional[int] = None
+    lesson_id: Optional[int] = None
     code: str
 
 class EvaluationResponse(BaseModel):
