@@ -56,14 +56,54 @@ async def evaluate_code(
         raise HTTPException(status_code=400, detail="Must provide either challenge_id or lesson_id")
         
     challenge = chal_res.scalars().first()
-    if not challenge:
-        raise HTTPException(status_code=404, detail="Coding challenge not found")
-        
-    test_res = await db.execute(select(TestCase).filter(TestCase.challenge_id == challenge.id).order_by(TestCase.order_index))
-    test_cases = test_res.scalars().all()
     
-    if not test_cases:
-        raise HTTPException(status_code=400, detail="No test cases defined for this challenge")
+    test_cases = []
+    if challenge:
+        test_res = await db.execute(select(TestCase).filter(TestCase.challenge_id == challenge.id).order_by(TestCase.order_index))
+        test_cases = test_res.scalars().all()
+        
+    # Auto-generate challenge and test case if not found but lesson has solution_code
+    if not test_cases and request.lesson_id:
+        from app.models.course import Lesson
+        lesson_res = await db.execute(select(Lesson).filter(Lesson.id == request.lesson_id))
+        lesson = lesson_res.scalars().first()
+        
+        if lesson and lesson.content_body and lesson.content_body.get('solution_code'):
+            solution_code = lesson.content_body['solution_code']
+            
+            # 1. Create the missing CodingChallenge
+            if not challenge:
+                challenge = CodingChallenge(
+                    lesson_id=lesson.id,
+                    title=lesson.title,
+                    description=lesson.content_body.get('text', ''),
+                    difficulty='beginner',
+                    xp_reward=lesson.xp_reward or 10
+                )
+                db.add(challenge)
+                await db.commit()
+                await db.refresh(challenge)
+                
+            # 2. Run the solution code to get the expected output
+            sol_result = await execute_python_code(solution_code)
+            expected_out = sol_result["stdout"] if sol_result["is_success"] else "Solution code failed"
+            
+            # 3. Create a TestCase
+            tc = TestCase(
+                challenge_id=challenge.id,
+                input_data="",
+                expected_output=expected_out,
+                is_hidden=False,
+                order_index=0
+            )
+            db.add(tc)
+            await db.commit()
+            await db.refresh(tc)
+            
+            test_cases.append(tc)
+            
+    if not challenge or not test_cases:
+        raise HTTPException(status_code=404, detail="Coding challenge not found and no solution code provided in the lesson.")
         
     # 2. Run execution synchronously for each test case
     total_cases = len(test_cases)

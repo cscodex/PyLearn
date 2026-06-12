@@ -4,21 +4,14 @@ import 'dart:convert';
 import '../../../course/presentation/providers/saved_programs_provider.dart';
 import '../../../course/presentation/pages/ide_screen.dart';
 
-import 'package:http/http.dart' as http;
-import '../../../core/constants/app_constants.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/network/dio_client.dart';
 
 final gradedSubmissionsProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
-  final token = ref.watch(authProvider).token;
-  if (token == null) return [];
-  
-  final response = await http.get(
-    Uri.parse('${AppConstants.apiBaseUrl}/admin/student-submissions'),
-    headers: {'Authorization': 'Bearer $token'},
-  );
+  final dio = ref.watch(dioProvider);
+  final response = await dio.get('/admin/student-submissions');
   
   if (response.statusCode == 200) {
-    return jsonDecode(response.body) as List<dynamic>;
+    return response.data as List<dynamic>;
   }
   throw Exception('Failed to fetch submissions');
 });
