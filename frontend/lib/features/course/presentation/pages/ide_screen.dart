@@ -762,20 +762,23 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    FilledButton.tonal(
-                      onPressed: () async {
-                        if (_output.isEmpty) {
-                          _showIslandNotification('Please run the program first!');
-                          return;
-                        }
-                        widget.onComplete!();
-                      },
-                      child: const Text('Mark Complete (No Grade)'),
+                    Expanded(
+                      child: FilledButton.tonal(
+                        onPressed: () async {
+                          if (_output.isEmpty) {
+                            _showIslandNotification('Please run the program first!');
+                            return;
+                          }
+                          widget.onComplete!();
+                        },
+                        child: const Text('Mark Complete', textAlign: TextAlign.center),
+                      ),
                     ),
-                    const SizedBox(width: 16),
-                    FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: Colors.purple),
-                      onPressed: () async {
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.purple),
+                        onPressed: () async {
                         if (widget.lessonId == null) {
                           _showIslandNotification('Cannot submit this assignment');
                           return;
@@ -799,16 +802,15 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                             _isExecuting = false;
                           });
 
-                          if (result['status'] == 'completed') {
-                          _showIslandNotification('All test cases passed! Assignment graded.');
-                          widget.onComplete!();
-                        } else {
                           final score = result['score'];
                           final error = result['error'];
                           final passed = result['test_cases_passed'];
                           final total = result['test_cases_total'];
-                          
-                          if (error != null && passed == null) {
+                          final isCompleted = result['status'] == 'completed';
+
+                          if (isCompleted) {
+                            _showIslandNotification('Passed! Score: $score');
+                          } else if (error != null && passed == null) {
                             _showIslandNotification('Evaluation failed: $error');
                           } else {
                             _showIslandNotification('Passed $passed/$total test cases. Score: $score');
@@ -820,7 +822,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
-                                title: const Text('Evaluation Results'),
+                                title: Text(isCompleted ? 'Success! 🎉' : 'Evaluation Results'),
                                 content: SizedBox(
                                   width: double.maxFinite,
                                   child: ListView.builder(
@@ -835,20 +837,44 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                                           color: passed ? Colors.green : Colors.red,
                                         ),
                                         title: Text('Test Case ${i+1}'),
-                                        subtitle: Text(
-                                          'Expected: ${tr['expected_output']}\nActual: ${tr['actual_output']}'
+                                        subtitle: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Expected: ${tr['expected_output']}\nActual: ${tr['actual_output']}'),
+                                            if (tr['error'] != null && tr['error'].toString().isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 8.0),
+                                                child: Text(
+                                                  'Feedback: ${tr['error']}',
+                                                  style: const TextStyle(color: Colors.orange, fontStyle: FontStyle.italic),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       );
                                     },
                                   ),
                                 ),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                                  if (!isCompleted)
+                                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+                                  if (isCompleted)
+                                    FilledButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        if (widget.onComplete != null) {
+                                          widget.onComplete!();
+                                        }
+                                      },
+                                      child: const Text('Continue'),
+                                    ),
                                 ],
                               ),
                             );
+                          } else if (isCompleted && widget.onComplete != null) {
+                            // Fallback if no test results for some reason
+                            widget.onComplete!();
                           }
-                        }
                       } catch (e) {
                         if (!mounted) return;
                           setState(() {
@@ -859,6 +885,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                         }
                       },
                       child: const Text('Submit Assignment'),
+                    ),
                     ),
                   ],
                 ),

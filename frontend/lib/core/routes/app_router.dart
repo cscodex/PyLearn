@@ -142,10 +142,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CreatorEnrollmentTrackingScreen(),
       ),
       GoRoute(
-        path: '/creator/student-programs',
-        builder: (context, state) => const StudentProgramsScreen(),
-      ),
-      GoRoute(
         path: '/profile/certificates',
         builder: (context, state) => const CertificatesScreen(),
       ),

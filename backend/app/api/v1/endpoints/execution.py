@@ -108,6 +108,7 @@ async def evaluate_code(
         
     # 2. Run execution synchronously for each test case
     total_cases = len(test_cases)
+    total_score = 0.0
     passed_cases = 0
     test_results = []
     total_time_ms = 0
@@ -119,6 +120,7 @@ async def evaluate_code(
         actual = str(result["stdout"]).strip()
         
         is_passed = result["is_success"] and expected == actual
+        tc_score = 100.0 if is_passed else 0.0
         ai_reason = None
         
         # If exact match fails but code ran successfully, try AI evaluation!
@@ -129,18 +131,20 @@ async def evaluate_code(
                 actual_output=actual,
                 source_code=request.code
             )
-            is_passed = ai_result.get("passed", False)
+            tc_score = float(ai_result.get("score", 0))
+            is_passed = tc_score == 100.0
             ai_reason = ai_result.get("reason", None)
 
         if is_passed:
             passed_cases += 1
             
         total_time_ms += result["execution_time_ms"]
+        total_score += tc_score
         
         # Determine error string
         error_msg = result["stderr"] if not result["is_success"] else None
         if not is_passed and not error_msg and ai_reason:
-            error_msg = f"AI Feedback: {ai_reason}"
+            error_msg = f"AI Feedback: {ai_reason} (Score: {tc_score}%)"
 
         test_results.append({
             "test_case_id": tc.id,
@@ -152,12 +156,14 @@ async def evaluate_code(
         })
         
     # 3. Calculate score and XP
-    score = (passed_cases / total_cases) * 100.0
-    status = "completed" if passed_cases == total_cases else "failed"
+    score = total_score / total_cases if total_cases > 0 else 0.0
+    
+    # We consider it "completed" if they scored at least 80%
+    status = "completed" if score >= 80.0 else "failed"
     
     xp_earned = 0
-    if status == "completed":
-        xp_earned = challenge.xp_reward
+    if score > 0:
+        xp_earned = int((score / 100.0) * challenge.xp_reward)
         current_user.xp += xp_earned
         db.add(current_user)
         
