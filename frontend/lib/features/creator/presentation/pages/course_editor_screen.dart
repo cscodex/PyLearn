@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 import '../providers/creator_courses_provider.dart';
 import '../../../course/presentation/providers/course_provider.dart';
@@ -28,7 +30,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     final course = courseAsync.value;
     final authState = ref.watch(authProvider);
     final role = authState.user?.role ?? 'student';
-    final isAdmin = role == 'admin';
+    final isAdmin = false; // Always allow editing, even if admin
 
     if (course == null && !isLoading && !courseAsync.hasError) {
       return Scaffold(
@@ -442,27 +444,111 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
     final titleCtrl = TextEditingController(text: course.title);
     final descCtrl = TextEditingController(text: course.description);
     String diff = course.difficultyLevel;
+    String thumbnailUrl = course.thumbnailUrl ?? '';
+    bool isGenerating = false;
+    bool isUploading = false;
+    final ImagePicker picker = ImagePicker();
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           title: const Text('Edit Course Metadata'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Title')),
-              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Description')),
-              DropdownButtonFormField<String>(
-                value: diff,
-                items: const [
-                  DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
-                  DropdownMenuItem(value: 'intermediate', child: Text('Intermediate')),
-                  DropdownMenuItem(value: 'advanced', child: Text('Advanced')),
-                ],
-                onChanged: (val) => setState(() => diff = val!),
-                decoration: const InputDecoration(labelText: 'Difficulty'),
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Title')),
+                TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Description')),
+                DropdownButtonFormField<String>(
+                  value: diff,
+                  items: const [
+                    DropdownMenuItem(value: 'beginner', child: Text('Beginner')),
+                    DropdownMenuItem(value: 'intermediate', child: Text('Intermediate')),
+                    DropdownMenuItem(value: 'advanced', child: Text('Advanced')),
+                  ],
+                  onChanged: (val) => setState(() => diff = val!),
+                  decoration: const InputDecoration(labelText: 'Difficulty'),
+                ),
+                const SizedBox(height: 24),
+                Text('Course Backdrop', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                if (thumbnailUrl.isNotEmpty)
+                  Container(
+                    height: 120,
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      image: DecorationImage(
+                        image: NetworkImage(thumbnailUrl),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: isUploading 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.upload),
+                        label: const Text('Upload Image'),
+                        onPressed: isUploading ? null : () async {
+                          final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                          if (image != null) {
+                            setState(() => isUploading = true);
+                            final url = await ref.read(creatorCoursesProvider.notifier).uploadCourseImage(image.path, image.name);
+                            if (url != null) {
+                              setState(() => thumbnailUrl = url);
+                            } else {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to upload image')));
+                            }
+                            setState(() => isUploading = false);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: isGenerating 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.auto_awesome),
+                        label: const Text('AI Generate'),
+                        onPressed: isGenerating ? null : () async {
+                          final promptCtrl = TextEditingController(text: '${titleCtrl.text} concept art, 4k, octane render');
+                          final prompt = await showDialog<String>(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Generate Backdrop'),
+                              content: TextField(controller: promptCtrl, decoration: const InputDecoration(labelText: 'Prompt')),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+                                ElevatedButton(onPressed: () => Navigator.pop(c, promptCtrl.text), child: const Text('Generate')),
+                              ],
+                            )
+                          );
+                          
+                          if (prompt != null && prompt.isNotEmpty) {
+                            setState(() => isGenerating = true);
+                            final url = await ref.read(creatorCoursesProvider.notifier).generateCourseImageWithAI(prompt);
+                            if (url != null) {
+                              setState(() => thumbnailUrl = url);
+                            } else {
+                              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to generate image')));
+                            }
+                            setState(() => isGenerating = false);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
@@ -472,6 +558,7 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                   'title': titleCtrl.text,
                   'description': descCtrl.text,
                   'difficulty_level': diff,
+                  'thumbnail_url': thumbnailUrl.isEmpty ? null : thumbnailUrl,
                 });
                 await _refreshCourse();
                 if (mounted) Navigator.pop(ctx);

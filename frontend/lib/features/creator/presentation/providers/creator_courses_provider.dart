@@ -229,6 +229,29 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
       return null;
     }
   }
+
+  Future<String?> generateCourseImageWithAI(String prompt) async {
+    try {
+      final response = await _dio.post('/ai/image', data: {
+        'prompt': prompt,
+      });
+      return response.data['image_url'];
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<String?> uploadCourseImage(String filePath, String fileName) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+      final response = await _dio.post('/upload/image', data: formData);
+      return response.data['url'];
+    } catch (e) {
+      return null;
+    }
+  }
 }
 
 final creatorCoursesProvider = NotifierProvider<CreatorCoursesNotifier, AsyncValue<List<Course>>>(() {

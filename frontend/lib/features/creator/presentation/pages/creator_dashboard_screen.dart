@@ -152,7 +152,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
                                     Text('By ${course.instructorName}', style: const TextStyle(color: Colors.grey)),
                                 ],
                               ),
-                              trailing: role == 'admin' ? const Icon(Icons.visibility) : const Icon(Icons.edit),
+                              trailing: const Icon(Icons.edit),
                               onTap: () {
                                 context.push('/creator/course/${course.id}/edit');
                               },

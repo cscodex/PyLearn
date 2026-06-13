@@ -63,3 +63,34 @@ async def generate_course_structure(
     ]
 
     return AIGenerateResponse(modules=modules)
+
+class AIImageRequest(BaseModel):
+    prompt: str
+
+class AIImageResponse(BaseModel):
+    image_url: str
+
+@router.post("/image", response_model=AIImageResponse)
+async def generate_course_image(
+    request: AIImageRequest,
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """
+    Generate a course backdrop image using Pollinations AI.
+    """
+    if current_user.role not in ["admin", "creator"]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    import urllib.parse
+    # URL encode the prompt
+    encoded_prompt = urllib.parse.quote(request.prompt)
+    
+    # Generate a random seed so same prompt gives different images
+    import random
+    seed = random.randint(1, 100000)
+    
+    # Use Pollinations AI (free, no API key needed)
+    # nologo=true removes the watermark, width=1024, height=512 for a good backdrop ratio
+    image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=512&nologo=true&seed={seed}"
+
+    return AIImageResponse(image_url=image_url)

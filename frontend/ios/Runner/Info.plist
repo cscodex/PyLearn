@@ -71,5 +71,9 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>PyTutor needs access to your photo library to upload course images.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>PyTutor needs access to your camera to capture course images.</string>
 	</dict>
 </plist>

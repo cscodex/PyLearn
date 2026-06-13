@@ -40,7 +40,6 @@ async def read_student_programs(
     stmt = (
         select(SavedProgram, User)
         .join(User, SavedProgram.user_id == User.id)
-        .where(User.role == 'student')
         .order_by(SavedProgram.created_at.desc())
     )
     result = await db.execute(stmt)
