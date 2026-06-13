@@ -1,20 +1,18 @@
-import asyncio
-from httpx import AsyncClient
+import requests
 
-async def main():
-    async with AsyncClient(base_url="http://localhost:8000/api/v1") as client:
-        # Login
-        response = await client.post("/auth/login", data={"username": "student@example.com", "password": "password123"})
-        token = response.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
-        
-        # Edit Profile
-        response = await client.put("/auth/profile", json={"fullName": "Student Demo", "email": "student@example.com"}, headers=headers)
-        print("Edit Profile:", response.status_code, response.text)
+# Login to get token
+r = requests.post("http://localhost:8000/api/v1/auth/login", data={"username": "charanpreetsinghg@gmail.com", "password": "password"})
+token = r.json().get("access_token")
+headers = {"Authorization": f"Bearer {token}"}
 
-        # Change Password
-        response = await client.put("/auth/password", json={"currentPassword": "password123", "newPassword": "password123"}, headers=headers)
-        print("Change Password:", response.status_code, response.text)
+# Test /saved-programs/students
+r1 = requests.get("http://localhost:8000/api/v1/saved-programs/students", headers=headers)
+print("Saved programs /students:", r1.status_code, r1.text[:200])
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# Test /creator/enrollments
+r2 = requests.get("http://localhost:8000/api/v1/creator/enrollments", headers=headers)
+print("Creator enrollments:", r2.status_code, r2.text[:200])
+
+# Test /admin/enrollments
+r3 = requests.get("http://localhost:8000/api/v1/admin/enrollments", headers=headers)
+print("Admin enrollments:", r3.status_code, r3.text[:200])

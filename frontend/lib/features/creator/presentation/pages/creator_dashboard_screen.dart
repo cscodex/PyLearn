@@ -73,7 +73,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
                       const SizedBox(width: 16),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => context.push('/creator/enrollments'),
+                          onPressed: () => context.push(isAdmin ? '/admin/enrollments' : '/creator/enrollments'),
                           icon: const Icon(Icons.analytics),
                           label: const Text('Enrollments'),
                         ),
