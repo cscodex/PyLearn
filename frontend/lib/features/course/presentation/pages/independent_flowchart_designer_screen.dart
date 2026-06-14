@@ -501,7 +501,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
       final node = nodes.firstWhere((n) => n.id == currentNodeId);
 
-      if (node.type == FlowchartNodeType.oval && node.text.toUpperCase().contains('END')) {
+      if (node.type == FlowchartNodeType.oval && node.text.toUpperCase().contains('END') && node.id != startNode.id) {
         setState(() {
           consoleOutput.add("Execution finished.");
           isRunning = false;
