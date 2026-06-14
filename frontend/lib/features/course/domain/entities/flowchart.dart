@@ -58,7 +58,7 @@ class FlowchartEdge {
   final String toNodeId;
   final FlowchartAnchor fromAnchor;
   final FlowchartAnchor toAnchor;
-  final String? label; // For 'YES' / 'NO' on decisions
+  String? label; // For 'YES' / 'NO' on decisions
 
   FlowchartEdge({
     required this.fromNodeId,
