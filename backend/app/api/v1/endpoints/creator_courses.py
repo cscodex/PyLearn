@@ -534,6 +534,20 @@ async def delete_chapter(
     await db.commit()
     return {"status": "success"}
 
+@router.get("/lessons/{lesson_id}", response_model=LessonResponse)
+async def get_lesson(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    lesson_id: int,
+    current_user: User = Depends(deps.get_current_creator_user)
+) -> Any:
+    """Get a single lesson by ID for editing."""
+    result = await db.execute(select(Lesson).filter(Lesson.id == lesson_id))
+    lesson = result.scalars().first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return lesson
+
 @router.put("/lessons/{lesson_id}", response_model=LessonResponse)
 async def update_lesson(
     *,
