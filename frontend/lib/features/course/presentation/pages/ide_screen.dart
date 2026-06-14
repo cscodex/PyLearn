@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
@@ -519,13 +520,15 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   child: SingleChildScrollView(
-                    child: Text(
-                      widget.contentBody?['text'] ?? 'No description provided.',
-                      style: TextStyle(
-                        fontSize: _currentFontSize + 2,
-                        height: 1.6,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
+                    child: Html(
+                      data: widget.contentBody?['text'] ?? 'No description provided.',
+                      style: {
+                        "body": Style(
+                          fontSize: FontSize(_currentFontSize),
+                          lineHeight: LineHeight(1.6),
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      },
                     ),
                   ),
                 )
