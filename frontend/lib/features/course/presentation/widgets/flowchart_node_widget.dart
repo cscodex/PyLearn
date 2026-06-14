@@ -80,6 +80,8 @@ class FlowchartNodeWidget extends StatelessWidget {
   final bool isSelected;
   final bool isPaletteItem;
   final Function(String fromNodeId, FlowchartAnchor fromAnchor, FlowchartAnchor toAnchor)? onEdgeCreate;
+  final Function(String nodeId, FlowchartAnchor anchor)? onAnchorTapped;
+  final bool Function(String nodeId, FlowchartAnchor anchor)? isAnchorActive;
 
   const FlowchartNodeWidget({
     super.key,
@@ -88,6 +90,8 @@ class FlowchartNodeWidget extends StatelessWidget {
     this.isSelected = false,
     this.isPaletteItem = false,
     this.onEdgeCreate,
+    this.onAnchorTapped,
+    this.isAnchorActive,
   });
 
   Color _getBorderColor() {
@@ -109,39 +113,32 @@ class FlowchartNodeWidget extends StatelessWidget {
   }
 
   Widget _buildAnchor(FlowchartAnchor anchor, double left, double top) {
-    if (!isSelected || isPaletteItem) return const SizedBox.shrink();
+    if (isPaletteItem) return const SizedBox.shrink();
+    final bool isActive = isAnchorActive?.call(node.id, anchor) ?? false;
     return Positioned(
-      left: left - 7.5,
-      top: top - 7.5,
-      child: Draggable<Map<String, dynamic>>(
-        data: {'nodeId': node.id, 'anchor': anchor},
-        feedback: Container(
-          width: 15,
-          height: 15,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
+      left: left - 15,
+      top: top - 15,
+      child: GestureDetector(
+        onTap: () {
+          onAnchorTapped?.call(node.id, anchor);
+        },
+        child: Container(
+          width: 30,
+          height: 30,
+          color: Colors.transparent, // larger hit area
+          alignment: Alignment.center,
+          child: Container(
+            width: 15,
+            height: 15,
+            decoration: BoxDecoration(
+              color: isActive 
+                  ? Colors.greenAccent 
+                  : (isSelected ? Colors.blueAccent : Colors.white24),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: isSelected || isActive ? 2 : 1),
+              boxShadow: isActive ? [BoxShadow(color: Colors.greenAccent, blurRadius: 10, spreadRadius: 2)] : null,
+            ),
           ),
-        ),
-        child: DragTarget<Map<String, dynamic>>(
-          onAcceptWithDetails: (details) {
-            final fromNodeId = details.data['nodeId'] as String;
-            final fromAnchor = details.data['anchor'] as FlowchartAnchor;
-            if (fromNodeId != node.id) {
-              onEdgeCreate?.call(fromNodeId, fromAnchor, anchor);
-            }
-          },
-          builder: (context, candidateData, rejectedData) {
-            return Container(
-              width: 15,
-              height: 15,
-              decoration: BoxDecoration(
-                color: candidateData.isNotEmpty ? Colors.greenAccent : Colors.blueAccent,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-            );
-          },
         ),
       ),
     );

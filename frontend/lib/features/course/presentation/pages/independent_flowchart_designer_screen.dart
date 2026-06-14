@@ -23,6 +23,8 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   List<FlowchartNode> nodes = [];
   List<FlowchartEdge> edges = [];
   String? selectedNodeId;
+  String? connectingFromNodeId;
+  FlowchartAnchor? connectingFromAnchor;
   bool isSaving = false;
   bool _isToolboxExpanded = false;
   String flowchartTitle = "My Flowchart";
@@ -71,19 +73,34 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     });
   }
 
-  void _onNodeTapped(String id) {
+  void _onNodeTapped(String nodeId) {
     setState(() {
-      if (selectedNodeId == null) {
-        selectedNodeId = id;
+      if (selectedNodeId == nodeId) {
+        _showEditDialog(nodeId);
+        selectedNodeId = null;
       } else {
-        if (selectedNodeId == id) {
-          _showEditDialog(id);
-          selectedNodeId = null;
-        } else {
-          selectedNodeId = id; // Select the new node
-        }
+        selectedNodeId = nodeId;
       }
     });
+  }
+
+  void _onAnchorTapped(String nodeId, FlowchartAnchor anchor) {
+    if (connectingFromNodeId == null) {
+      // Start connection
+      setState(() {
+        connectingFromNodeId = nodeId;
+        connectingFromAnchor = anchor;
+      });
+    } else {
+      // Finish connection
+      if (connectingFromNodeId != nodeId) {
+        _createEdge(connectingFromNodeId!, nodeId, connectingFromAnchor!, anchor);
+      }
+      setState(() {
+        connectingFromNodeId = null;
+        connectingFromAnchor = null;
+      });
+    }
   }
 
   Future<void> _createEdge(String fromId, String toId, FlowchartAnchor fromAnchor, FlowchartAnchor toAnchor) async {
@@ -158,6 +175,10 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                 setState(() {
                   nodes.removeWhere((n) => n.id == id);
                   edges.removeWhere((e) => e.fromNodeId == id || e.toNodeId == id);
+                  if (connectingFromNodeId == id) {
+                    connectingFromNodeId = null;
+                    connectingFromAnchor = null;
+                  }
                 });
                 Navigator.pop(context);
               },
@@ -250,6 +271,85 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
   }
 
+  void _showLoadDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF2C2C3E),
+      builder: (context) {
+        return Consumer(
+          builder: (context, ref, child) {
+            final flowchartsAsyncValue = ref.watch(savedFlowchartsProvider);
+
+            return flowchartsAsyncValue.when(
+              data: (flowcharts) {
+                if (flowcharts.isEmpty) {
+                  return const Center(child: Text('No saved flowcharts found.', style: TextStyle(color: Colors.white70)));
+                }
+                return ListView.builder(
+                  itemCount: flowcharts.length,
+                  itemBuilder: (context, index) {
+                    final flowchart = flowcharts[index];
+                    return ListTile(
+                      title: Text(flowchart.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      subtitle: Text('${flowchart.nodes.length} nodes', style: const TextStyle(color: Colors.white54)),
+                      trailing: const Icon(Icons.download, color: Colors.purpleAccent),
+                      onTap: () {
+                        setState(() {
+                          flowchartTitle = flowchart.title;
+                          nodes = List.from(flowchart.nodes);
+                          edges = List.from(flowchart.edges);
+                          selectedNodeId = null;
+                          connectingFromNodeId = null;
+                          connectingFromAnchor = null;
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.redAccent))),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showInstructionsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF2C2C3E),
+          title: const Text('How to Connect Arrows', style: TextStyle(color: Colors.white)),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('1. Drag shapes from the purple toolbox onto the grid.', style: TextStyle(color: Colors.white70)),
+              SizedBox(height: 8),
+              Text('2. Tap a shape to select it.', style: TextStyle(color: Colors.white70)),
+              SizedBox(height: 8),
+              Text('3. Tap an anchor dot on a shape to start an arrow. It will turn green.', style: TextStyle(color: Colors.white70)),
+              SizedBox(height: 8),
+              Text('4. Tap an anchor dot on another shape to connect them.', style: TextStyle(color: Colors.white70)),
+              SizedBox(height: 8),
+              Text('5. Tap a selected shape again to edit or delete it.', style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Got it', style: TextStyle(color: Colors.purpleAccent)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -260,6 +360,16 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: 'Load Flowchart',
+            onPressed: _showLoadDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Instructions',
+            onPressed: _showInstructionsDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.clear_all),
             tooltip: 'Clear All',
             onPressed: () {
@@ -267,6 +377,8 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                 nodes.clear();
                 edges.clear();
                 selectedNodeId = null;
+                connectingFromNodeId = null;
+                connectingFromAnchor = null;
               });
             },
           ),
@@ -296,6 +408,8 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             onNodeDragged: _onNodeDragged,
             onNodeTapped: _onNodeTapped,
             onEdgeCreate: _createEdge,
+            onAnchorTapped: _onAnchorTapped,
+            isAnchorActive: (id, anchor) => connectingFromNodeId == id && connectingFromAnchor == anchor,
           ),
           // Floating Toolbox
           Positioned(

@@ -61,16 +61,37 @@ class EdgePainter extends CustomPainter {
         final fromCenter = getAnchor(fromNode, edge.fromAnchor);
         final toCenter = getAnchor(toNode, edge.toAnchor);
 
-        // Simple straight line
-        canvas.drawLine(fromCenter, toCenter, paint);
+        // Bezier curve control points
+        Offset getControlPoint(Offset pt, FlowchartAnchor anchor, double offset) {
+          switch (anchor) {
+            case FlowchartAnchor.top: return Offset(pt.dx, pt.dy - offset);
+            case FlowchartAnchor.bottom: return Offset(pt.dx, pt.dy + offset);
+            case FlowchartAnchor.left: return Offset(pt.dx - offset, pt.dy);
+            case FlowchartAnchor.right: return Offset(pt.dx + offset, pt.dy);
+          }
+        }
 
-        // Draw arrow head at the end
-        _drawArrowHead(canvas, fromCenter, toCenter, paint);
+        final dist = (fromCenter - toCenter).distance;
+        final cpOffset = dist * 0.4; // 40% of distance makes a smooth curve
+        
+        final cp1 = getControlPoint(fromCenter, edge.fromAnchor, cpOffset);
+        final cp2 = getControlPoint(toCenter, edge.toAnchor, cpOffset);
+
+        final edgePath = Path();
+        edgePath.moveTo(fromCenter.dx, fromCenter.dy);
+        edgePath.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, toCenter.dx, toCenter.dy);
+        
+        canvas.drawPath(edgePath, paint);
+
+        // Draw arrow head at the end, angled from the second control point to the destination
+        _drawArrowHead(canvas, cp2, toCenter, paint);
 
         // Draw label if exists (e.g. YES/NO)
         if (edge.label != null && edge.label!.isNotEmpty) {
-          final midPoint = Offset((fromCenter.dx + toCenter.dx) / 2,
-              (fromCenter.dy + toCenter.dy) / 2);
+          // Approximate midpoint of the cubic bezier curve using 0.5 t
+          final midX = 0.125 * fromCenter.dx + 0.375 * cp1.dx + 0.375 * cp2.dx + 0.125 * toCenter.dx;
+          final midY = 0.125 * fromCenter.dy + 0.375 * cp1.dy + 0.375 * cp2.dy + 0.125 * toCenter.dy;
+          final midPoint = Offset(midX, midY);
           final textSpan = TextSpan(
             text: edge.label,
             style: const TextStyle(
