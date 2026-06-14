@@ -8,6 +8,8 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:gal/gal.dart';
+import 'package:math_expressions/math_expressions.dart' hide Stack;
 import '../../domain/entities/flowchart.dart';
 import '../widgets/flowchart_canvas.dart';
 import '../widgets/flowchart_node_widget.dart';
@@ -41,6 +43,12 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   List<String> undoStack = [];
   List<String> redoStack = [];
   final GlobalKey _canvasBoundaryKey = GlobalKey();
+
+  // Runner state
+  bool isRunning = false;
+  String? runningNodeId;
+  Map<String, double> variables = {};
+  List<String> consoleOutput = [];
 
   @override
   void initState() {
@@ -392,6 +400,218 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
   }
 
+  Future<void> _saveToGallery() async {
+    try {
+      final boundary = _canvasBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+      
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/flowchart_save.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      await Gal.putImage(file.path);
+      
+      if (mounted) {
+        Fluttertoast.showToast(msg: 'Saved to Gallery!', backgroundColor: Colors.green);
+      }
+    } catch (e) {
+      if (mounted) {
+        Fluttertoast.showToast(msg: 'Failed to save to gallery: $e', backgroundColor: Colors.redAccent);
+      }
+    }
+  }
+
+  Future<void> _runFlowchart() async {
+    if (nodes.isEmpty) return;
+    
+    // Find START node
+    final startNode = nodes.firstWhere(
+      (n) => n.type == FlowchartNodeType.oval && n.text.toUpperCase().contains('START'),
+      orElse: () => nodes.firstWhere((n) => n.type == FlowchartNodeType.oval),
+    );
+
+    setState(() {
+      isRunning = true;
+      runningNodeId = startNode.id;
+      variables.clear();
+      consoleOutput.clear();
+    });
+
+    String? currentNodeId = startNode.id;
+
+    while (currentNodeId != null && isRunning) {
+      setState(() => runningNodeId = currentNodeId);
+      await Future.delayed(const Duration(milliseconds: 800)); // Animation pause
+
+      if (!isRunning) break;
+
+      final node = nodes.firstWhere((n) => n.id == currentNodeId);
+
+      if (node.type == FlowchartNodeType.oval && node.text.toUpperCase().contains('END')) {
+        setState(() {
+          consoleOutput.add("Execution finished.");
+          isRunning = false;
+          runningNodeId = null;
+        });
+        break;
+      } else if (node.type == FlowchartNodeType.parallelogram) {
+        // I/O Node
+        final text = node.text.trim();
+        if (text.toLowerCase().startsWith('input')) {
+          final vars = text.substring(5).split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          for (final v in vars) {
+            final value = await _promptInput(v);
+            if (value != null) {
+              variables[v] = value;
+              setState(() => consoleOutput.add("Input $v = $value"));
+            }
+          }
+        } else if (text.toLowerCase().startsWith('print')) {
+          final exprStr = text.substring(5).trim();
+          // Extremely basic print evaluator (single var or string)
+          if (exprStr.startsWith('"') || exprStr.startsWith("'")) {
+             setState(() => consoleOutput.add(exprStr.replaceAll('"', '').replaceAll("'", '')));
+          } else if (variables.containsKey(exprStr)) {
+             setState(() => consoleOutput.add(variables[exprStr]!.toString()));
+          } else {
+             try {
+                final p = Parser();
+                final exp = p.parse(exprStr);
+                final cm = ContextModel();
+                variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
+                final res = exp.evaluate(EvaluationType.REAL, cm);
+                setState(() => consoleOutput.add(res.toString()));
+             } catch (_) {
+                setState(() => consoleOutput.add(exprStr));
+             }
+          }
+        }
+      } else if (node.type == FlowchartNodeType.rectangle) {
+        // Process Node
+        final text = node.text;
+        if (text.contains('=')) {
+          final parts = text.split('=');
+          final varName = parts[0].trim();
+          final exprStr = parts.sublist(1).join('=').trim();
+          try {
+            final p = Parser();
+            final exp = p.parse(exprStr);
+            final cm = ContextModel();
+            variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
+            final res = exp.evaluate(EvaluationType.REAL, cm);
+            variables[varName] = res;
+          } catch (e) {
+            setState(() => consoleOutput.add("Error evaluating $exprStr: $e"));
+          }
+        }
+      }
+
+      // Find next node
+      String? nextNodeId;
+
+      if (node.type == FlowchartNodeType.diamond) {
+         // Decision Node
+         final text = node.text.trim();
+         bool result = false;
+         
+         // Custom simple boolean evaluator for > < ==
+         try {
+            if (text.contains('>')) {
+               final parts = text.split('>');
+               final p = Parser();
+               final cm = ContextModel();
+               variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
+               double left = p.parse(parts[0].trim()).evaluate(EvaluationType.REAL, cm);
+               double right = p.parse(parts[1].trim()).evaluate(EvaluationType.REAL, cm);
+               result = left > right;
+            } else if (text.contains('<')) {
+               final parts = text.split('<');
+               final p = Parser();
+               final cm = ContextModel();
+               variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
+               double left = p.parse(parts[0].trim()).evaluate(EvaluationType.REAL, cm);
+               double right = p.parse(parts[1].trim()).evaluate(EvaluationType.REAL, cm);
+               result = left < right;
+            } else if (text.contains('==')) {
+               final parts = text.split('==');
+               final p = Parser();
+               final cm = ContextModel();
+               variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
+               double left = p.parse(parts[0].trim()).evaluate(EvaluationType.REAL, cm);
+               double right = p.parse(parts[1].trim()).evaluate(EvaluationType.REAL, cm);
+               result = left == right;
+            }
+         } catch (e) {
+            setState(() => consoleOutput.add("Error evaluating condition $text"));
+         }
+
+         // Look for matching edge
+         final outgoing = edges.where((e) => e.fromNodeId == node.id).toList();
+         final targetLabel = result ? ['yes', 'true'] : ['no', 'false'];
+         
+         final match = outgoing.firstWhere(
+           (e) => e.label != null && targetLabel.contains(e.label!.toLowerCase().trim()),
+           orElse: () => outgoing.isNotEmpty ? outgoing.first : FlowchartEdge(fromNodeId: '', toNodeId: '', fromAnchor: FlowchartAnchor.top, toAnchor: FlowchartAnchor.top),
+         );
+         
+         if (match.fromNodeId.isNotEmpty) nextNodeId = match.toNodeId;
+
+      } else {
+         final outgoing = edges.where((e) => e.fromNodeId == node.id).toList();
+         if (outgoing.isNotEmpty) {
+           nextNodeId = outgoing.first.toNodeId;
+         }
+      }
+
+      if (nextNodeId == null) {
+        setState(() {
+           consoleOutput.add("Execution finished. No more steps.");
+           isRunning = false;
+           runningNodeId = null;
+        });
+        break;
+      }
+      
+      currentNodeId = nextNodeId;
+    }
+  }
+
+  Future<double?> _promptInput(String varName) async {
+     final controller = TextEditingController();
+     final result = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+           return AlertDialog(
+              backgroundColor: const Color(0xFF2C2C3E),
+              title: Text('Input $varName', style: const TextStyle(color: Colors.white)),
+              content: TextField(
+                 controller: controller,
+                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                 style: const TextStyle(color: Colors.white),
+                 decoration: const InputDecoration(
+                    hintText: 'Enter a number',
+                    hintStyle: TextStyle(color: Colors.white54),
+                 ),
+              ),
+              actions: [
+                 FilledButton(
+                    onPressed: () => Navigator.pop(context, controller.text),
+                    child: const Text('Submit'),
+                 )
+              ],
+           );
+        }
+     );
+     if (result != null && result.isNotEmpty) {
+        return double.tryParse(result);
+     }
+     return 0.0;
+  }
+
   void _showLoadDialog() {
     showModalBottomSheet(
       context: context,
@@ -481,15 +701,37 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
         title: Text(flowchartTitle, style: const TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          if (isRunning)
+            IconButton(
+              icon: const Icon(Icons.stop, color: Colors.redAccent),
+              tooltip: 'Stop',
+              onPressed: () {
+                 setState(() {
+                    isRunning = false;
+                    runningNodeId = null;
+                 });
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.play_arrow, color: Colors.greenAccent),
+              tooltip: 'Run Flowchart',
+              onPressed: _runFlowchart,
+            ),
+          IconButton(
+            icon: const Icon(Icons.save_alt),
+            tooltip: 'Save to Gallery',
+            onPressed: _saveToGallery,
+          ),
+          IconButton(
+            icon: const Icon(Icons.ios_share),
+            tooltip: 'Share Image',
+            onPressed: _downloadFlowchart,
+          ),
           IconButton(
             icon: const Icon(Icons.folder_open),
             tooltip: 'Load Flowchart',
             onPressed: _showLoadDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'Export Flowchart',
-            onPressed: _downloadFlowchart,
           ),
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -612,6 +854,51 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                       ],
                     ),
                   ),
+                ),
+              ),
+            ),
+          // Console Output for Runner
+          if (isRunning || consoleOutput.isNotEmpty)
+            Positioned(
+              left: 16,
+              right: 16,
+              top: 16,
+              child: Container(
+                height: 150,
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.greenAccent),
+                ),
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Console Output', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                          onPressed: () => setState(() => consoleOutput.clear()),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Colors.white24),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: consoleOutput.length,
+                        itemBuilder: (context, index) {
+                          return Text(
+                            '> ${consoleOutput[index]}',
+                            style: const TextStyle(color: Colors.green, fontFamily: 'monospace', fontSize: 14),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

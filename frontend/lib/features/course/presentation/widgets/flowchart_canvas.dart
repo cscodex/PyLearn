@@ -155,6 +155,7 @@ class FlowchartCanvas extends StatelessWidget {
   final List<FlowchartEdge> edges;
   final String? selectedNodeId;
   final String? selectedEdgeId;
+  final String? runningNodeId;
   final Function(FlowchartNodeType, Offset) onNodeDropped;
   final Function(String, Offset) onNodeDragged;
   final Function(String) onNodeTapped;
@@ -176,6 +177,7 @@ class FlowchartCanvas extends StatelessWidget {
     this.onNodeDragStart,
     this.selectedNodeId,
     this.selectedEdgeId,
+    this.runningNodeId,
     this.onEdgeTapped,
     this.onEdgeCreate,
     this.onAnchorTapped,
@@ -280,6 +282,8 @@ class FlowchartCanvas extends StatelessWidget {
                         child: FlowchartNodeWidget(
                           node: node,
                           isSelected: selectedNodeId == node.id,
+                          isHighlighted: runningNodeId == node.id,
+                          edges: edges,
                           onTap: () => onNodeTapped(node.id),
                           onDoubleTap: () => onNodeDoubleTapped?.call(node.id),
                           onEdgeCreate: (fromId, fromAnchor, toAnchor) {

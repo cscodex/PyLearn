@@ -80,6 +80,8 @@ class FlowchartNodeWidget extends StatelessWidget {
   final VoidCallback? onDoubleTap;
   final bool isSelected;
   final bool isPaletteItem;
+  final bool isHighlighted; // For flowchart runner
+  final List<FlowchartEdge> edges; // Passed down to check for connected anchors
   final Function(String fromNodeId, FlowchartAnchor fromAnchor, FlowchartAnchor toAnchor)? onEdgeCreate;
   final Function(String nodeId, FlowchartAnchor anchor)? onAnchorTapped;
   final bool Function(String nodeId, FlowchartAnchor anchor)? isAnchorActive;
@@ -91,12 +93,15 @@ class FlowchartNodeWidget extends StatelessWidget {
     this.onDoubleTap,
     this.isSelected = false,
     this.isPaletteItem = false,
+    this.isHighlighted = false,
+    this.edges = const [],
     this.onEdgeCreate,
     this.onAnchorTapped,
     this.isAnchorActive,
   });
 
   Color _getBorderColor() {
+    if (isHighlighted) return Colors.greenAccent;
     if (isSelected && !isPaletteItem) return Colors.white;
     switch (node.type) {
       case FlowchartNodeType.oval:
@@ -116,6 +121,13 @@ class FlowchartNodeWidget extends StatelessWidget {
 
   Widget _buildAnchor(FlowchartAnchor anchor, double left, double top) {
     if (isPaletteItem) return const SizedBox.shrink();
+
+    final bool isConnected = edges.any((e) =>
+        (e.fromNodeId == node.id && e.fromAnchor == anchor) ||
+        (e.toNodeId == node.id && e.toAnchor == anchor));
+
+    if (isConnected) return const SizedBox.shrink(); // Hide connected anchors
+
     final bool isActive = isAnchorActive?.call(node.id, anchor) ?? false;
     return Positioned(
       left: left - 15,
