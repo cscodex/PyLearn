@@ -10,6 +10,7 @@ import '../../features/course/presentation/pages/dashboard_screen.dart';
 import '../../features/course/presentation/pages/course_detail_screen.dart';
 import '../../features/course/presentation/pages/course_player_screen.dart';
 import '../../features/course/presentation/pages/ide_screen.dart';
+import '../../features/course/presentation/pages/independent_flowchart_designer_screen.dart';
 import '../../features/course/presentation/pages/quiz_screen.dart';
 import '../../features/profile/presentation/pages/settings_screen.dart';
 import '../../features/profile/presentation/pages/security_logs_screen.dart';
@@ -51,6 +52,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const MainNavigationScreen(),
+      ),
+      GoRoute(
+        path: '/flowchart-designer',
+        builder: (context, state) => const IndependentFlowchartDesignerScreen(),
       ),
       GoRoute(
         path: '/courses/:id',

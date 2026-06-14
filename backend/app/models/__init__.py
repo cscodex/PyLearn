@@ -6,6 +6,7 @@ from app.models.progress import Enrollment, UserLessonProgress, Bookmark
 from app.models.misc import Certificate, Notification, ActivityLog, PasswordResetToken
 from app.models.group import Group, GroupMember, GroupAssignment
 from app.models.saved_program import SavedProgram
+from app.models.saved_flowchart import SavedFlowchart
 
 # Export all models so Alembic can discover them
 __all__ = [
@@ -15,5 +16,5 @@ __all__ = [
     "UserScore", "XpTransaction", "Streak", "Achievement", "UserAchievement",
     "Enrollment", "UserLessonProgress", "Bookmark",
     "Certificate", "Notification", "ActivityLog", "PasswordResetToken",
-    "Group", "GroupMember", "GroupAssignment", "SavedProgram"
+    "Group", "GroupMember", "GroupAssignment", "SavedProgram", "SavedFlowchart"
 ]

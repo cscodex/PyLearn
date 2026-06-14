@@ -9,6 +9,8 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  String _status = 'Initializing...';
+
   @override
   void initState() {
     super.initState();
@@ -16,9 +18,15 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
+    setState(() => _status = 'Waiting 2 seconds...');
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) {
-      context.go('/login');
+      setState(() => _status = 'Navigating to /login...');
+      try {
+        context.go('/login');
+      } catch (e) {
+        setState(() => _status = 'Error navigating: $e');
+      }
     }
   }
 
@@ -51,6 +59,8 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 32),
             const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(_status, style: const TextStyle(color: Colors.white70)),
           ],
         ),
       ),

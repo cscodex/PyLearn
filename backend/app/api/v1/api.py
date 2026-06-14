@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, upload, courses, execution, quiz, leaderboard, users, creator_courses, admin, creator_groups, ai_generator, saved_programs, certificates, admin_tools
+from app.api.v1.endpoints import auth, upload, courses, execution, quiz, leaderboard, users, creator_courses, admin, creator_groups, ai_generator, saved_programs, certificates, admin_tools, flowcharts
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -16,3 +16,4 @@ api_router.include_router(saved_programs.router, prefix="/saved-programs", tags=
 api_router.include_router(leaderboard.router, prefix="/leaderboard", tags=["leaderboard"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(certificates.router, prefix="/certificates", tags=["certificates"])
+api_router.include_router(flowcharts.router, prefix="/flowcharts", tags=["flowcharts"])

@@ -44,11 +44,22 @@ class EdgePainter extends CustomPainter {
         final fromNode = nodes.firstWhere((n) => n.id == edge.fromNodeId);
         final toNode = nodes.firstWhere((n) => n.id == edge.toNodeId);
 
-        // Calculate centers
-        final fromCenter =
-            Offset(fromNode.position.dx + 60, fromNode.position.dy + 30);
-        final toCenter =
-            Offset(toNode.position.dx + 60, toNode.position.dy + 30);
+        Offset getAnchor(FlowchartNode node, FlowchartAnchor anchor) {
+          final center = Offset(node.position.dx + 60, node.position.dy + 30);
+          switch (anchor) {
+            case FlowchartAnchor.top:
+              return Offset(center.dx, node.position.dy);
+            case FlowchartAnchor.bottom:
+              return Offset(center.dx, node.position.dy + 60);
+            case FlowchartAnchor.left:
+              return Offset(node.position.dx, center.dy);
+            case FlowchartAnchor.right:
+              return Offset(node.position.dx + 120, center.dy);
+          }
+        }
+
+        final fromCenter = getAnchor(fromNode, edge.fromAnchor);
+        final toCenter = getAnchor(toNode, edge.toAnchor);
 
         // Simple straight line
         canvas.drawLine(fromCenter, toCenter, paint);
@@ -123,6 +134,7 @@ class FlowchartCanvas extends StatelessWidget {
   final Function(FlowchartNodeType, Offset) onNodeDropped;
   final Function(String, Offset) onNodeDragged;
   final Function(String) onNodeTapped;
+  final Function(String, String, FlowchartAnchor, FlowchartAnchor)? onEdgeCreate;
 
   const FlowchartCanvas({
     super.key,
@@ -132,6 +144,7 @@ class FlowchartCanvas extends StatelessWidget {
     required this.onNodeDragged,
     required this.onNodeTapped,
     this.selectedNodeId,
+    this.onEdgeCreate,
   });
 
   @override
@@ -173,6 +186,9 @@ class FlowchartCanvas extends StatelessWidget {
                         node: node,
                         isSelected: selectedNodeId == node.id,
                         onTap: () => onNodeTapped(node.id),
+                        onEdgeCreate: (fromId, fromAnchor, toAnchor) {
+                          onEdgeCreate?.call(fromId, node.id, fromAnchor, toAnchor);
+                        },
                       ),
                     ),
                   );

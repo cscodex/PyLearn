@@ -7,6 +7,13 @@ enum FlowchartNodeType {
   diamond,       // Decision
 }
 
+enum FlowchartAnchor {
+  top,
+  bottom,
+  left,
+  right,
+}
+
 class FlowchartNode {
   final String id;
   FlowchartNodeType type;
@@ -28,7 +35,10 @@ class FlowchartNode {
         orElse: () => FlowchartNodeType.rectangle,
       ),
       text: json['text'] as String? ?? '',
-      position: const Offset(0, 0), // Position is usually client-side state
+      position: Offset(
+        (json['x'] as num?)?.toDouble() ?? 0.0,
+        (json['y'] as num?)?.toDouble() ?? 0.0,
+      ),
     );
   }
 
@@ -37,6 +47,8 @@ class FlowchartNode {
       'id': id,
       'type': type.name,
       'text': text,
+      'x': position.dx,
+      'y': position.dy,
     };
   }
 }
@@ -44,26 +56,40 @@ class FlowchartNode {
 class FlowchartEdge {
   final String fromNodeId;
   final String toNodeId;
+  final FlowchartAnchor fromAnchor;
+  final FlowchartAnchor toAnchor;
   final String? label; // For 'YES' / 'NO' on decisions
 
   FlowchartEdge({
     required this.fromNodeId,
     required this.toNodeId,
+    this.fromAnchor = FlowchartAnchor.bottom,
+    this.toAnchor = FlowchartAnchor.top,
     this.label,
   });
 
   factory FlowchartEdge.fromJson(Map<String, dynamic> json) {
     return FlowchartEdge(
-      fromNodeId: json['from'] as String,
-      toNodeId: json['to'] as String,
+      fromNodeId: json['fromNodeId'] as String,
+      toNodeId: json['toNodeId'] as String,
+      fromAnchor: FlowchartAnchor.values.firstWhere(
+        (e) => e.name == json['fromAnchor'],
+        orElse: () => FlowchartAnchor.bottom,
+      ),
+      toAnchor: FlowchartAnchor.values.firstWhere(
+        (e) => e.name == json['toAnchor'],
+        orElse: () => FlowchartAnchor.top,
+      ),
       label: json['label'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'from': fromNodeId,
-      'to': toNodeId,
+      'fromNodeId': fromNodeId,
+      'toNodeId': toNodeId,
+      'fromAnchor': fromAnchor.name,
+      'toAnchor': toAnchor.name,
       if (label != null) 'label': label,
     };
   }
@@ -89,6 +115,36 @@ class FlowchartPracticalConfig {
       expectedEdges: (json['expected_edges'] as List<dynamic>?)
           ?.map((e) => FlowchartEdge.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],
+    );
+  }
+}
+
+class SavedFlowchart {
+  final int id;
+  final String title;
+  final List<FlowchartNode> nodes;
+  final List<FlowchartEdge> edges;
+  final DateTime createdAt;
+
+  SavedFlowchart({
+    required this.id,
+    required this.title,
+    required this.nodes,
+    required this.edges,
+    required this.createdAt,
+  });
+
+  factory SavedFlowchart.fromJson(Map<String, dynamic> json) {
+    return SavedFlowchart(
+      id: json['id'] as int,
+      title: json['title'] as String,
+      nodes: (json['nodes'] as List<dynamic>?)
+          ?.map((e) => FlowchartNode.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      edges: (json['edges'] as List<dynamic>?)
+          ?.map((e) => FlowchartEdge.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
 }

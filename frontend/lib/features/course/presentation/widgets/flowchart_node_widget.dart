@@ -79,6 +79,7 @@ class FlowchartNodeWidget extends StatelessWidget {
   final VoidCallback? onTap;
   final bool isSelected;
   final bool isPaletteItem;
+  final Function(String fromNodeId, FlowchartAnchor fromAnchor, FlowchartAnchor toAnchor)? onEdgeCreate;
 
   const FlowchartNodeWidget({
     super.key,
@@ -86,6 +87,7 @@ class FlowchartNodeWidget extends StatelessWidget {
     this.onTap,
     this.isSelected = false,
     this.isPaletteItem = false,
+    this.onEdgeCreate,
   });
 
   Color _getBorderColor() {
@@ -106,51 +108,99 @@ class FlowchartNodeWidget extends StatelessWidget {
     return _getBorderColor().withOpacity(0.15);
   }
 
+  Widget _buildAnchor(FlowchartAnchor anchor, double left, double top) {
+    if (!isSelected || isPaletteItem) return const SizedBox.shrink();
+    return Positioned(
+      left: left - 7.5,
+      top: top - 7.5,
+      child: Draggable<Map<String, dynamic>>(
+        data: {'nodeId': node.id, 'anchor': anchor},
+        feedback: Container(
+          width: 15,
+          height: 15,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+        ),
+        child: DragTarget<Map<String, dynamic>>(
+          onAcceptWithDetails: (details) {
+            final fromNodeId = details.data['nodeId'] as String;
+            final fromAnchor = details.data['anchor'] as FlowchartAnchor;
+            if (fromNodeId != node.id) {
+              onEdgeCreate?.call(fromNodeId, fromAnchor, anchor);
+            }
+          },
+          builder: (context, candidateData, rejectedData) {
+            return Container(
+              width: 15,
+              height: 15,
+              decoration: BoxDecoration(
+                color: candidateData.isNotEmpty ? Colors.greenAccent : Colors.blueAccent,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = isPaletteItem ? 60.0 : 120.0;
     final height = isPaletteItem ? 40.0 : 60.0;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: width,
-        height: height,
-        decoration: isSelected && !isPaletteItem
-            ? BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: _getBorderColor().withOpacity(0.4),
-                    blurRadius: 15,
-                    spreadRadius: 2,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: width,
+            height: height,
+            decoration: isSelected && !isPaletteItem
+                ? BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: _getBorderColor().withOpacity(0.4),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      )
+                    ],
                   )
-                ],
-              )
-            : null,
-        child: CustomPaint(
-          painter: FlowchartShapePainter(
-            type: node.type,
-            borderColor: _getBorderColor(),
-            fillColor: _getFillColor(),
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-              child: Text(
-                node.text,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: isPaletteItem ? 10 : 12,
+                : null,
+            child: CustomPaint(
+              painter: FlowchartShapePainter(
+                type: node.type,
+                borderColor: _getBorderColor(),
+                fillColor: _getFillColor(),
+              ),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                  child: Text(
+                    node.text,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: isPaletteItem ? 10 : 12,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
+        _buildAnchor(FlowchartAnchor.top, width / 2, 0),
+        _buildAnchor(FlowchartAnchor.bottom, width / 2, height),
+        _buildAnchor(FlowchartAnchor.left, 0, height / 2),
+        _buildAnchor(FlowchartAnchor.right, width, height / 2),
+      ],
     );
   }
 }

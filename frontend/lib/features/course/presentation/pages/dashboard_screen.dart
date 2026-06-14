@@ -59,7 +59,24 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: const _BreathingFab(),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'flowchart_fab',
+            onPressed: () {
+              if (context.mounted) context.push('/flowchart-designer');
+            },
+            icon: const Icon(Icons.account_tree),
+            label: const Text('Flowchart'),
+            backgroundColor: Colors.purpleAccent,
+            foregroundColor: Colors.white,
+          ),
+          const SizedBox(height: 16),
+          const _BreathingFab(),
+        ],
+      ),
     );
   }
 

@@ -10,8 +10,8 @@ from app.models.course import Course, Chapter, Lesson
 
 async def seed_flowchart():
     async with AsyncSessionLocal() as db:
-        print("Fetching Course 1, Chapter 1...")
-        result = await db.execute(select(Chapter).where(Chapter.title == "1.1 Introduction and Setup").limit(1))
+        print("Fetching Course Python Basics...")
+        result = await db.execute(select(Chapter).where(Chapter.id == 25).limit(1))
         chapter = result.scalar_one_or_none()
         
         if not chapter:
