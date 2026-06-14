@@ -378,17 +378,71 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
   }
 
+  Future<Uint8List?> _getRenderedImageBytes() async {
+    final boundary = _canvasBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) return null;
+    final image = await boundary.toImage(pixelRatio: 2.0);
+    
+    if (nodes.isEmpty) {
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    }
+
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = -double.infinity;
+    double maxY = -double.infinity;
+
+    for (final node in nodes) {
+      if (node.position.dx < minX) minX = node.position.dx;
+      if (node.position.dy < minY) minY = node.position.dy;
+      if (node.position.dx + 160 > maxX) maxX = node.position.dx + 160;
+      if (node.position.dy + 80 > maxY) maxY = node.position.dy + 80;
+    }
+
+    const padding = 40.0;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+
+    if (minX < 0) minX = 0;
+    if (minY < 0) minY = 0;
+    if (maxX > 4000) maxX = 4000;
+    if (maxY > 4000) maxY = 4000;
+
+    final pixelRatio = 2.0;
+    final cropRect = Rect.fromLTRB(
+      minX * pixelRatio,
+      minY * pixelRatio,
+      maxX * pixelRatio,
+      maxY * pixelRatio,
+    );
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    
+    canvas.drawImageRect(
+      image,
+      cropRect,
+      Rect.fromLTWH(0, 0, cropRect.width, cropRect.height),
+      Paint(),
+    );
+    
+    final picture = recorder.endRecording();
+    final croppedImage = await picture.toImage(cropRect.width.toInt(), cropRect.height.toInt());
+    final byteData = await croppedImage.toByteData(format: ui.ImageByteFormat.png);
+    return byteData?.buffer.asUint8List();
+  }
+
   Future<void> _downloadFlowchart() async {
     try {
-      final boundary = _canvasBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return;
-      final image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
+      final bytes = await _getRenderedImageBytes();
+      if (bytes == null) return;
       
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/flowchart.png');
-      await file.writeAsBytes(byteData.buffer.asUint8List());
+      await file.writeAsBytes(bytes);
 
       if (mounted) {
         await Share.shareXFiles([XFile(file.path)], text: 'Check out my flowchart!');
@@ -402,15 +456,12 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
   Future<void> _saveToGallery() async {
     try {
-      final boundary = _canvasBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return;
-      final image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
+      final bytes = await _getRenderedImageBytes();
+      if (bytes == null) return;
       
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/flowchart_save.png');
-      await file.writeAsBytes(byteData.buffer.asUint8List());
+      await file.writeAsBytes(bytes);
 
       await Gal.putImage(file.path);
       
