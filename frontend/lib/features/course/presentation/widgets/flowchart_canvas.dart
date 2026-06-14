@@ -158,6 +158,8 @@ class FlowchartCanvas extends StatelessWidget {
   final Function(FlowchartNodeType, Offset) onNodeDropped;
   final Function(String, Offset) onNodeDragged;
   final Function(String) onNodeTapped;
+  final Function(String)? onNodeDoubleTapped;
+  final Function(String)? onNodeDragStart;
   final Function(String)? onEdgeTapped;
   final Function(String, String, FlowchartAnchor, FlowchartAnchor)? onEdgeCreate;
   final Function(String nodeId, FlowchartAnchor anchor)? onAnchorTapped;
@@ -170,6 +172,8 @@ class FlowchartCanvas extends StatelessWidget {
     required this.onNodeDropped,
     required this.onNodeDragged,
     required this.onNodeTapped,
+    this.onNodeDoubleTapped,
+    this.onNodeDragStart,
     this.selectedNodeId,
     this.selectedEdgeId,
     this.onEdgeTapped,
@@ -266,6 +270,7 @@ class FlowchartCanvas extends StatelessWidget {
                       left: node.position.dx,
                       top: node.position.dy,
                       child: GestureDetector(
+                        onPanStart: (_) => onNodeDragStart?.call(node.id),
                         onPanUpdate: (details) {
                           onNodeDragged(
                               node.id,
@@ -276,6 +281,7 @@ class FlowchartCanvas extends StatelessWidget {
                           node: node,
                           isSelected: selectedNodeId == node.id,
                           onTap: () => onNodeTapped(node.id),
+                          onDoubleTap: () => onNodeDoubleTapped?.call(node.id),
                           onEdgeCreate: (fromId, fromAnchor, toAnchor) {
                             onEdgeCreate?.call(fromId, node.id, fromAnchor, toAnchor);
                           },

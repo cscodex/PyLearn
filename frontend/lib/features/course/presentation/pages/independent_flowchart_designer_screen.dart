@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:ui';
+import 'dart:ui' as ui;
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../domain/entities/flowchart.dart';
 import '../widgets/flowchart_canvas.dart';
 import '../widgets/flowchart_node_widget.dart';
@@ -31,6 +38,10 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   bool _isToolboxExpanded = false;
   String flowchartTitle = "My Flowchart";
 
+  List<String> undoStack = [];
+  List<String> redoStack = [];
+  final GlobalKey _canvasBoundaryKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -42,7 +53,52 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
   }
 
+  void _saveSnapshot() {
+    final state = jsonEncode({
+      'nodes': nodes.map((n) => n.toJson()).toList(),
+      'edges': edges.map((e) => e.toJson()).toList(),
+    });
+    undoStack.add(state);
+    if (undoStack.length > 50) {
+      undoStack.removeAt(0);
+    }
+    redoStack.clear();
+  }
+
+  void _undo() {
+    if (undoStack.isEmpty) return;
+    final currentState = jsonEncode({
+      'nodes': nodes.map((n) => n.toJson()).toList(),
+      'edges': edges.map((e) => e.toJson()).toList(),
+    });
+    redoStack.add(currentState);
+    _restoreSnapshot(undoStack.removeLast());
+  }
+
+  void _redo() {
+    if (redoStack.isEmpty) return;
+    final currentState = jsonEncode({
+      'nodes': nodes.map((n) => n.toJson()).toList(),
+      'edges': edges.map((e) => e.toJson()).toList(),
+    });
+    undoStack.add(currentState);
+    _restoreSnapshot(redoStack.removeLast());
+  }
+
+  void _restoreSnapshot(String stateStr) {
+    final state = jsonDecode(stateStr);
+    setState(() {
+      nodes = (state['nodes'] as List).map((n) => FlowchartNode.fromJson(n)).toList();
+      edges = (state['edges'] as List).map((e) => FlowchartEdge.fromJson(e)).toList();
+      selectedNodeId = null;
+      selectedEdgeId = null;
+      connectingFromNodeId = null;
+      connectingFromAnchor = null;
+    });
+  }
+
   void _onNodeDropped(FlowchartNodeType type, Offset localPosition) {
+    _saveSnapshot();
     setState(() {
       final newNode = FlowchartNode(
         id: 'node_${DateTime.now().millisecondsSinceEpoch}',
@@ -121,6 +177,8 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     final exists = edges.any((e) => e.fromNodeId == fromId && e.toNodeId == toId);
     if (exists) return;
 
+    _saveSnapshot();
+
     final controller = TextEditingController(text: 'label');
     final String? label = await showDialog<String>(
       context: context,
@@ -191,6 +249,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.purpleAccent),
               onPressed: () {
+                _saveSnapshot();
                 setState(() {
                   node.text = controller.text;
                 });
@@ -231,6 +290,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.purpleAccent),
               onPressed: () {
+                _saveSnapshot();
                 setState(() {
                   edge.label = controller.text.isEmpty ? null : controller.text;
                 });
@@ -246,9 +306,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
   Future<void> _saveFlowchart() async {
     if (nodes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add some nodes first.')),
-      );
+      Fluttertoast.showToast(msg: 'Please add some nodes first.', backgroundColor: Colors.redAccent);
       return;
     }
 
@@ -298,20 +356,38 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
         
         ref.invalidate(savedFlowchartsProvider);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Flowchart saved successfully!'), backgroundColor: Colors.green),
-          );
+          Fluttertoast.showToast(msg: 'Flowchart saved successfully!', backgroundColor: Colors.green);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to save: $e'), backgroundColor: Colors.redAccent),
-          );
+          Fluttertoast.showToast(msg: 'Failed to save: $e', backgroundColor: Colors.redAccent);
         }
       } finally {
         if (mounted) {
           setState(() => isSaving = false);
         }
+      }
+    }
+  }
+
+  Future<void> _downloadFlowchart() async {
+    try {
+      final boundary = _canvasBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+      
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/flowchart.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      if (mounted) {
+        await Share.shareXFiles([XFile(file.path)], text: 'Check out my flowchart!');
+      }
+    } catch (e) {
+      if (mounted) {
+        Fluttertoast.showToast(msg: 'Failed to export flowchart: $e', backgroundColor: Colors.redAccent);
       }
     }
   }
@@ -411,6 +487,11 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             onPressed: _showLoadDialog,
           ),
           IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Export Flowchart',
+            onPressed: _downloadFlowchart,
+          ),
+          IconButton(
             icon: const Icon(Icons.info_outline),
             tooltip: 'Instructions',
             onPressed: _showInstructionsDialog,
@@ -440,55 +521,29 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                 child: SizedBox(
                   width: 4000,
                   height: 4000,
-                  child: FlowchartCanvas(
-                    nodes: nodes,
-                    edges: edges,
-                    selectedNodeId: selectedNodeId,
-                    selectedEdgeId: selectedEdgeId,
-                    onNodeDropped: _onNodeDropped,
-                    onNodeDragged: _onNodeDragged,
-                    onNodeTapped: _onNodeTapped,
-                    onEdgeTapped: _onEdgeTapped,
-                    onEdgeCreate: _createEdge,
-                    onAnchorTapped: _onAnchorTapped,
-                    isAnchorActive: (id, anchor) => connectingFromNodeId == id && connectingFromAnchor == anchor,
+                  child: RepaintBoundary(
+                    key: _canvasBoundaryKey,
+                    child: FlowchartCanvas(
+                      nodes: nodes,
+                      edges: edges,
+                      selectedNodeId: selectedNodeId,
+                      selectedEdgeId: selectedEdgeId,
+                      onNodeDropped: _onNodeDropped,
+                      onNodeDragged: _onNodeDragged,
+                      onNodeDragStart: (_) => _saveSnapshot(),
+                      onNodeTapped: _onNodeTapped,
+                      onNodeDoubleTapped: _showEditNodeDialog,
+                      onEdgeTapped: _onEdgeTapped,
+                      onEdgeCreate: _createEdge,
+                      onAnchorTapped: _onAnchorTapped,
+                      isAnchorActive: (id, anchor) => connectingFromNodeId == id && connectingFromAnchor == anchor,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-          // Info Icon
-          Positioned(
-            top: 16,
-            right: 16,
-            child: FloatingActionButton.small(
-              heroTag: 'info',
-              backgroundColor: const Color(0xFF2C2C3E).withOpacity(0.8),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: const Color(0xFF2C2C3E),
-                    title: const Text('Instructions', style: TextStyle(color: Colors.white)),
-                    content: const Text(
-                      '1. Tap tool icon to open toolbox.\n'
-                      '2. Drag shapes to canvas.\n'
-                      '3. Tap anchor dots on shapes to connect lines.\n'
-                      '4. Tap a shape or line to edit/delete/duplicate.',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('OK', style: TextStyle(color: Colors.purpleAccent)),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              child: const Icon(Icons.info_outline, color: Colors.white),
-            ),
-          ),
+          // Info icon removed from here, as requested
           // Quick Actions for Selected Item
           if (selectedNodeId != null || selectedEdgeId != null)
             Positioned(
@@ -521,6 +576,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                             icon: const Icon(Icons.copy, color: Colors.white),
                             tooltip: 'Duplicate',
                             onPressed: () {
+                              _saveSnapshot();
                               final node = nodes.firstWhere((n) => n.id == selectedNodeId);
                               setState(() {
                                 nodes.add(FlowchartNode(
@@ -536,6 +592,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                           icon: const Icon(Icons.delete, color: Colors.redAccent),
                           tooltip: 'Delete',
                           onPressed: () {
+                            _saveSnapshot();
                             setState(() {
                               if (selectedNodeId != null) {
                                 nodes.removeWhere((n) => n.id == selectedNodeId);
@@ -558,6 +615,29 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                 ),
               ),
             ),
+          // Undo/Redo Buttons
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'undo',
+                  backgroundColor: undoStack.isNotEmpty ? const Color(0xFF2C2C3E) : const Color(0xFF2C2C3E).withOpacity(0.5),
+                  onPressed: undoStack.isNotEmpty ? _undo : null,
+                  child: Icon(Icons.undo, color: undoStack.isNotEmpty ? Colors.white : Colors.white54),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'redo',
+                  backgroundColor: redoStack.isNotEmpty ? const Color(0xFF2C2C3E) : const Color(0xFF2C2C3E).withOpacity(0.5),
+                  onPressed: redoStack.isNotEmpty ? _redo : null,
+                  child: Icon(Icons.redo, color: redoStack.isNotEmpty ? Colors.white : Colors.white54),
+                ),
+              ],
+            ),
+          ),
           // Floating Toolbox
           Positioned(
             left: 16,
@@ -596,6 +676,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                   icon: const Icon(Icons.clear_all, color: Colors.redAccent),
                   tooltip: 'Clear Canvas',
                   onPressed: () {
+                    _saveSnapshot();
                     setState(() {
                       nodes.clear();
                       edges.clear();

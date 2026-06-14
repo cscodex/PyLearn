@@ -77,6 +77,7 @@ class FlowchartShapePainter extends CustomPainter {
 class FlowchartNodeWidget extends StatelessWidget {
   final FlowchartNode node;
   final VoidCallback? onTap;
+  final VoidCallback? onDoubleTap;
   final bool isSelected;
   final bool isPaletteItem;
   final Function(String fromNodeId, FlowchartAnchor fromAnchor, FlowchartAnchor toAnchor)? onEdgeCreate;
@@ -87,6 +88,7 @@ class FlowchartNodeWidget extends StatelessWidget {
     super.key,
     required this.node,
     this.onTap,
+    this.onDoubleTap,
     this.isSelected = false,
     this.isPaletteItem = false,
     this.onEdgeCreate,
@@ -154,6 +156,7 @@ class FlowchartNodeWidget extends StatelessWidget {
       children: [
         GestureDetector(
           onTap: onTap,
+          onDoubleTap: onDoubleTap,
           child: Container(
             width: width,
             height: height,
