@@ -491,11 +491,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        icon: isUploading 
+                      child: ElevatedButton(
+                        child: isUploading 
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.upload),
-                        label: const Text('Upload Image'),
                         onPressed: isUploading ? null : () async {
                           final XFile? image = await picker.pickImage(source: ImageSource.gallery);
                           if (image != null) {
@@ -513,11 +512,10 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        icon: isGenerating 
+                      child: ElevatedButton(
+                        child: isGenerating 
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.auto_awesome),
-                        label: const Text('AI Generate'),
                         onPressed: isGenerating ? null : () async {
                           final promptCtrl = TextEditingController(text: '${titleCtrl.text} concept art, 4k, octane render');
                           final prompt = await showDialog<String>(
@@ -551,8 +549,8 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
+            IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close), tooltip: 'Cancel'),
+            IconButton.filled(
               onPressed: () async {
                 await ref.read(creatorCoursesProvider.notifier).updateCourse(course.id, {
                   'title': titleCtrl.text,
@@ -563,7 +561,8 @@ class _CourseEditorScreenState extends ConsumerState<CourseEditorScreen> {
                 await _refreshCourse();
                 if (mounted) Navigator.pop(ctx);
               },
-              child: const Text('Save'),
+              icon: const Icon(Icons.check),
+              tooltip: 'Save',
             )
           ],
         )
