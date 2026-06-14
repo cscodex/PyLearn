@@ -35,7 +35,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 height: 120,
                 child: ClipOval(
                   child: Image.asset(
-                    'assets/images/app_icon.png',
+                    'assets/images/app_icon_transparent.png',
                     fit: BoxFit.cover,
                   ),
                 ),

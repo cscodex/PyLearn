@@ -1,4 +1,5 @@
 import '../providers/creator_courses_provider.dart';
+import '../../../course/presentation/providers/course_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -112,7 +113,7 @@ class CreatorDashboardScreen extends ConsumerWidget {
           ),
           Consumer(
             builder: (context, ref, child) {
-              final coursesAsync = ref.watch(creatorCoursesProvider);
+              final coursesAsync = isAdmin ? ref.watch(allCoursesProvider) : ref.watch(creatorCoursesProvider);
               return coursesAsync.when(
                 data: (courses) {
                   if (courses.isEmpty) {

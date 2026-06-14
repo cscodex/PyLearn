@@ -41,7 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     height: 120,
                     child: ClipOval(
                       child: Image.asset(
-                        'assets/images/app_icon.png',
+                        'assets/images/app_icon_transparent.png',
                         fit: BoxFit.cover,
                       ),
                     ),

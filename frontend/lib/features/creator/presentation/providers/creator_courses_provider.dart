@@ -232,10 +232,19 @@ class CreatorCoursesNotifier extends Notifier<AsyncValue<List<Course>>> {
 
   Future<String?> generateCourseImageWithAI(String prompt) async {
     try {
-      final response = await _dio.post('/ai/image', data: {
+      final response = await _dio.post('/creator/ai/image', data: {
         'prompt': prompt,
       });
       return response.data['image_url'];
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getLesson(int lessonId) async {
+    try {
+      final response = await _dio.get('/creator/lessons/$lessonId');
+      return response.data;
     } catch (e) {
       return null;
     }

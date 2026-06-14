@@ -425,19 +425,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
               onPressed: _saveProgram,
             ),
           ],
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: IconButton(
-              onPressed: _isExecuting ? null : _runCode,
-              icon: _isExecuting 
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.play_arrow, color: Colors.green),
-              tooltip: 'Run Code',
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.green.withValues(alpha: 0.2),
-              ),
-            ),
-          )
+
         ],
       ),
       body: Column(
@@ -509,8 +497,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                     onPressed: () => _addNewTab(),
                     tooltip: 'New Program',
                   ),
-                if (widget.inline)
-                  IconButton(
+                IconButton(
                     icon: const Icon(Icons.text_fields),
                     onPressed: _toggleFontSize,
                     tooltip: 'Toggle Font Size',
@@ -535,7 +522,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                     child: Text(
                       widget.contentBody?['text'] ?? 'No description provided.',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: _currentFontSize + 2,
                         height: 1.6,
                         color: isDark ? Colors.white : Colors.black87,
                       ),
@@ -555,7 +542,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                           _savedOutputTabContent ?? 'No saved output.',
                           style: TextStyle(
                             fontFamily: 'monospace',
-                            fontSize: 14,
+                            fontSize: _currentFontSize,
                             height: 1.6,
                             color: isDark ? Colors.white : Colors.black87,
                           ),
@@ -689,7 +676,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     ),
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    style: TextStyle(fontFamily: 'monospace', fontSize: _currentFontSize),
                     maxLines: 2,
                     minLines: 1,
                   ),
@@ -731,7 +718,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                           style: TextStyle(
                             fontFamily: 'monospace',
                             color: _isSuccess ? Colors.green.shade400 : (_output.isEmpty ? Colors.grey : Colors.red.shade400),
-                            fontSize: 14,
+                            fontSize: _currentFontSize,
                           ),
                         ),
                         if (_plots.isNotEmpty)

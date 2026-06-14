@@ -8,12 +8,18 @@ import '../../../../core/network/dio_client.dart';
 
 final gradedSubmissionsProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('/admin/student-submissions');
-  
-  if (response.statusCode == 200) {
-    return response.data as List<dynamic>;
+  try {
+    final response = await dio.get('/admin/student-submissions');
+    
+    if (response.statusCode == 200) {
+      return response.data as List<dynamic>;
+    }
+    return [];
+  } catch (e) {
+    // If user is a creator and not admin, this endpoint returns 403.
+    // Gracefully return empty list instead of breaking the UI.
+    return [];
   }
-  throw Exception('Failed to fetch submissions');
 });
 
 class CreatorStudentProgramsScreen extends ConsumerWidget {

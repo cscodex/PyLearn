@@ -36,22 +36,16 @@ class _CodeChallengeBuilderScreenState extends ConsumerState<CodeChallengeBuilde
   }
 
   void _loadExistingContent() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final courses = ref.read(creatorCoursesProvider).value ?? [];
-      for (var course in courses) {
-        for (var module in course.modules) {
-          for (var chapter in module.chapters) {
-            for (var lesson in chapter.lessons) {
-              if (lesson.id == widget.lessonId) {
-                if (lesson.contentBody != null) {
-                  _promptCtrl.text = lesson.contentBody?['text'] ?? '';
-                  _starterCodeCtrl.text = lesson.contentBody?['starter_code'] ?? '';
-                  _solutionCodeCtrl.text = lesson.contentBody?['solution_code'] ?? '';
-                }
-                return;
-              }
-            }
-          }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final lessonData = await ref.read(creatorCoursesProvider.notifier).getLesson(widget.lessonId);
+      if (lessonData != null && mounted) {
+        final contentBody = lessonData['content_body'] ?? lessonData['contentBody'];
+        if (contentBody != null) {
+          setState(() {
+            _promptCtrl.text = contentBody['text'] ?? '';
+            _starterCodeCtrl.text = contentBody['starter_code'] ?? contentBody['starterCode'] ?? '';
+            _solutionCodeCtrl.text = contentBody['solution_code'] ?? contentBody['solutionCode'] ?? '';
+          });
         }
       }
     });

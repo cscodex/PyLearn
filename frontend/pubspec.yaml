@@ -125,3 +125,6 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/images/app_icon.png"
   min_sdk_android: 21
+
+  config:
+    enable-lldb-debugging: false
