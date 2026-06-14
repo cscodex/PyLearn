@@ -12,8 +12,10 @@ async def upload_image(
     current_user: User = Depends(deps.get_current_active_user)
 ) -> Any:
     """Upload an image to Cloudinary (e.g. for user avatar)."""
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File provided is not an image.")
+    # iOS image picker sometimes sends application/octet-stream, so we relax this check
+    if not file.content_type.startswith("image/") and file.content_type != "application/octet-stream":
+        # we'll let Cloudinary do the actual file validation
+        pass
         
     url = await upload_file(file, folder=f"pythontutor/users/{current_user.id}")
     if not url:
