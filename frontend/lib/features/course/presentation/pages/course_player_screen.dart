@@ -6,6 +6,7 @@ import '../providers/course_provider.dart';
 import '../../data/repositories/course_repository.dart';
 import 'ide_screen.dart';
 import 'quiz_screen.dart';
+import 'flowchart_practical_screen.dart';
 import 'package:flutter_html/flutter_html.dart';
 
 class CoursePlayerScreen extends ConsumerStatefulWidget {
@@ -240,6 +241,12 @@ class _CoursePlayerScreenState extends ConsumerState<CoursePlayerScreen> {
         key: ValueKey('quiz_${lesson.id}'),
         lessonId: lesson.id, 
         inline: true, 
+        onComplete: () => _markCompleteAndNext(course, lesson)
+      );
+    } else if (lesson.contentType == 'flowchart_practical') {
+      return FlowchartPracticalScreen(
+        key: ValueKey('flowchart_${lesson.id}'),
+        contentBody: lesson.contentBody,
         onComplete: () => _markCompleteAndNext(course, lesson)
       );
     }
