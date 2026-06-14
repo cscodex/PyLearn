@@ -53,6 +53,24 @@ class FlowchartRepository {
     }
   }
 
+  Future<void> updateFlowchart(int id, String title, List<FlowchartNode> nodes, List<FlowchartEdge> edges) async {
+    try {
+      final response = await _dio.put(
+        '/flowcharts/$id',
+        data: {
+          'title': title,
+          'nodes': nodes.map((n) => n.toJson()).toList(),
+          'edges': edges.map((e) => e.toJson()).toList(),
+        },
+      );
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to update flowchart');
+      }
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+
   Future<void> deleteFlowchart(int id) async {
     try {
       await _dio.delete('/flowcharts/$id');

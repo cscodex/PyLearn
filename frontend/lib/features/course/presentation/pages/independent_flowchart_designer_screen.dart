@@ -20,9 +20,11 @@ class IndependentFlowchartDesignerScreen extends ConsumerStatefulWidget {
 }
 
 class _IndependentFlowchartDesignerScreenState extends ConsumerState<IndependentFlowchartDesignerScreen> {
+  int? loadedFlowchartId;
   List<FlowchartNode> nodes = [];
   List<FlowchartEdge> edges = [];
   String? selectedNodeId;
+  String? selectedEdgeId;
   String? connectingFromNodeId;
   FlowchartAnchor? connectingFromAnchor;
   bool isSaving = false;
@@ -33,6 +35,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   void initState() {
     super.initState();
     if (widget.initialFlowchart != null) {
+      loadedFlowchartId = widget.initialFlowchart!.id;
       nodes = List.from(widget.initialFlowchart!.nodes);
       edges = List.from(widget.initialFlowchart!.edges);
       flowchartTitle = widget.initialFlowchart!.title;
@@ -75,11 +78,22 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
   void _onNodeTapped(String nodeId) {
     setState(() {
+      selectedEdgeId = null;
       if (selectedNodeId == nodeId) {
-        _showEditDialog(nodeId);
         selectedNodeId = null;
       } else {
         selectedNodeId = nodeId;
+      }
+    });
+  }
+
+  void _onEdgeTapped(String edgeId) {
+    setState(() {
+      selectedNodeId = null;
+      if (selectedEdgeId == edgeId) {
+        selectedEdgeId = null;
+      } else {
+        selectedEdgeId = edgeId;
       }
     });
   }
@@ -151,7 +165,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
   }
 
-  void _showEditDialog(String id) {
+  void _showEditNodeDialog(String id) {
     final node = nodes.firstWhere((n) => n.id == id);
     final controller = TextEditingController(text: node.text);
 
@@ -171,20 +185,6 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                setState(() {
-                  nodes.removeWhere((n) => n.id == id);
-                  edges.removeWhere((e) => e.fromNodeId == id || e.toNodeId == id);
-                  if (connectingFromNodeId == id) {
-                    connectingFromNodeId = null;
-                    connectingFromAnchor = null;
-                  }
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
-            ),
-            TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
             ),
@@ -193,6 +193,46 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
               onPressed: () {
                 setState(() {
                   node.text = controller.text;
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showEditEdgeDialog(String id) {
+    final edge = edges.firstWhere((e) => '${e.fromNodeId}_${e.toNodeId}' == id);
+    final controller = TextEditingController(text: edge.label ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF2C2C3E),
+          title: const Text('Edit Edge Label', style: TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: controller,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'e.g. Yes, No, or blank',
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white54)),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.purpleAccent)),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.purpleAccent),
+              onPressed: () {
+                setState(() {
+                  edge.label = controller.text.isEmpty ? null : controller.text;
                 });
                 Navigator.pop(context);
               },
@@ -249,13 +289,18 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       setState(() => isSaving = true);
       try {
         final repo = ref.read(flowchartRepositoryProvider);
-        await repo.saveFlowchart(flowchartTitle, nodes, edges);
+        if (loadedFlowchartId != null) {
+          await repo.updateFlowchart(loadedFlowchartId!, flowchartTitle, nodes, edges);
+        } else {
+          final saved = await repo.saveFlowchart(flowchartTitle, nodes, edges);
+          loadedFlowchartId = saved.id; // Update ID so subsequent saves overwrite
+        }
+        
         ref.invalidate(savedFlowchartsProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Flowchart saved successfully!'), backgroundColor: Colors.green),
           );
-          Navigator.pop(context); // Go back to dashboard
         }
       } catch (e) {
         if (mounted) {
@@ -295,6 +340,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                       trailing: const Icon(Icons.download, color: Colors.purpleAccent),
                       onTap: () {
                         setState(() {
+                          loadedFlowchartId = flowchart.id;
                           flowchartTitle = flowchart.title;
                           nodes = List.from(flowchart.nodes);
                           edges = List.from(flowchart.edges);
@@ -369,48 +415,149 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             tooltip: 'Instructions',
             onPressed: _showInstructionsDialog,
           ),
-          IconButton(
-            icon: const Icon(Icons.clear_all),
-            tooltip: 'Clear All',
-            onPressed: () {
-              setState(() {
-                nodes.clear();
-                edges.clear();
-                selectedNodeId = null;
-                connectingFromNodeId = null;
-                connectingFromAnchor = null;
-              });
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: FilledButton.icon(
-              onPressed: isSaving ? null : _saveFlowchart,
-              icon: isSaving 
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                  : const Icon(Icons.save),
-              label: const Text('Save'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.purpleAccent,
-              ),
-            ),
-          ),
         ],
       ),
       body: Stack(
         children: [
           // Canvas
-          FlowchartCanvas(
-            nodes: nodes,
-            edges: edges,
-            selectedNodeId: selectedNodeId,
-            onNodeDropped: _onNodeDropped,
-            onNodeDragged: _onNodeDragged,
-            onNodeTapped: _onNodeTapped,
-            onEdgeCreate: _createEdge,
-            onAnchorTapped: _onAnchorTapped,
-            isAnchorActive: (id, anchor) => connectingFromNodeId == id && connectingFromAnchor == anchor,
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  selectedNodeId = null;
+                  selectedEdgeId = null;
+                  connectingFromNodeId = null;
+                  connectingFromAnchor = null;
+                });
+              },
+              child: InteractiveViewer(
+                panEnabled: true,
+                scaleEnabled: true,
+                constrained: false,
+                boundaryMargin: const EdgeInsets.all(2000),
+                minScale: 0.1,
+                maxScale: 5.0,
+                child: SizedBox(
+                  width: 4000,
+                  height: 4000,
+                  child: FlowchartCanvas(
+                    nodes: nodes,
+                    edges: edges,
+                    selectedNodeId: selectedNodeId,
+                    selectedEdgeId: selectedEdgeId,
+                    onNodeDropped: _onNodeDropped,
+                    onNodeDragged: _onNodeDragged,
+                    onNodeTapped: _onNodeTapped,
+                    onEdgeTapped: _onEdgeTapped,
+                    onEdgeCreate: _createEdge,
+                    onAnchorTapped: _onAnchorTapped,
+                    isAnchorActive: (id, anchor) => connectingFromNodeId == id && connectingFromAnchor == anchor,
+                  ),
+                ),
+              ),
+            ),
           ),
+          // Info Icon
+          Positioned(
+            top: 16,
+            right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'info',
+              backgroundColor: const Color(0xFF2C2C3E).withOpacity(0.8),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    backgroundColor: const Color(0xFF2C2C3E),
+                    title: const Text('Instructions', style: TextStyle(color: Colors.white)),
+                    content: const Text(
+                      '1. Tap tool icon to open toolbox.\n'
+                      '2. Drag shapes to canvas.\n'
+                      '3. Tap anchor dots on shapes to connect lines.\n'
+                      '4. Tap a shape or line to edit/delete/duplicate.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('OK', style: TextStyle(color: Colors.purpleAccent)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: const Icon(Icons.info_outline, color: Colors.white),
+            ),
+          ),
+          // Quick Actions for Selected Item
+          if (selectedNodeId != null || selectedEdgeId != null)
+            Positioned(
+              bottom: 100,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Card(
+                  color: const Color(0xFF3E3E5C),
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.white),
+                          tooltip: 'Edit Text',
+                          onPressed: () {
+                            if (selectedNodeId != null) {
+                              _showEditNodeDialog(selectedNodeId!);
+                            } else if (selectedEdgeId != null) {
+                              _showEditEdgeDialog(selectedEdgeId!);
+                            }
+                          },
+                        ),
+                        if (selectedNodeId != null)
+                          IconButton(
+                            icon: const Icon(Icons.copy, color: Colors.white),
+                            tooltip: 'Duplicate',
+                            onPressed: () {
+                              final node = nodes.firstWhere((n) => n.id == selectedNodeId);
+                              setState(() {
+                                nodes.add(FlowchartNode(
+                                  id: 'node_${DateTime.now().millisecondsSinceEpoch}',
+                                  type: node.type,
+                                  text: node.text,
+                                  position: Offset(node.position.dx + 40, node.position.dy + 40),
+                                ));
+                              });
+                            },
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.redAccent),
+                          tooltip: 'Delete',
+                          onPressed: () {
+                            setState(() {
+                              if (selectedNodeId != null) {
+                                nodes.removeWhere((n) => n.id == selectedNodeId);
+                                edges.removeWhere((e) => e.fromNodeId == selectedNodeId || e.toNodeId == selectedNodeId);
+                                if (connectingFromNodeId == selectedNodeId) {
+                                  connectingFromNodeId = null;
+                                  connectingFromAnchor = null;
+                                }
+                                selectedNodeId = null;
+                              } else if (selectedEdgeId != null) {
+                                edges.removeWhere((e) => '${e.fromNodeId}_${e.toNodeId}' == selectedEdgeId);
+                                selectedEdgeId = null;
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           // Floating Toolbox
           Positioned(
             left: 16,
@@ -437,13 +584,35 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _buildDraggableTool(FlowchartNodeType.oval, 'Start/End'),
+                _buildDraggableTool(FlowchartNodeType.oval, Icons.power_input, 'Start/End'),
                 const SizedBox(height: 8),
-                _buildDraggableTool(FlowchartNodeType.parallelogram, 'I/O'),
+                _buildDraggableTool(FlowchartNodeType.parallelogram, Icons.input, 'I/O'),
                 const SizedBox(height: 8),
-                _buildDraggableTool(FlowchartNodeType.rectangle, 'Process'),
+                _buildDraggableTool(FlowchartNodeType.rectangle, Icons.crop_square, 'Process'),
                 const SizedBox(height: 8),
-                _buildDraggableTool(FlowchartNodeType.diamond, 'Decision'),
+                _buildDraggableTool(FlowchartNodeType.diamond, Icons.change_history, 'Decision'),
+                const Divider(color: Colors.white54),
+                IconButton(
+                  icon: const Icon(Icons.clear_all, color: Colors.redAccent),
+                  tooltip: 'Clear Canvas',
+                  onPressed: () {
+                    setState(() {
+                      nodes.clear();
+                      edges.clear();
+                      selectedNodeId = null;
+                      selectedEdgeId = null;
+                      connectingFromNodeId = null;
+                      connectingFromAnchor = null;
+                    });
+                  },
+                ),
+                IconButton(
+                  icon: isSaving 
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.save, color: Colors.greenAccent),
+                  tooltip: 'Save',
+                  onPressed: isSaving ? null : _saveFlowchart,
+                ),
               ],
             ),
           ),
@@ -462,16 +631,16 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     );
   }
 
-  Widget _buildDraggableTool(FlowchartNodeType type, String label) {
+  Widget _buildDraggableTool(FlowchartNodeType type, IconData icon, String label) {
     return Draggable<FlowchartNodeType>(
       data: type,
       feedback: Material(
         color: Colors.transparent,
         child: Opacity(
-          opacity: 0.7,
+          opacity: 0.8,
           child: SizedBox(
-            width: 100,
-            height: 50,
+            width: 120,
+            height: 60,
             child: FlowchartNodeWidget(
               node: FlowchartNode(
                 id: 'temp',
@@ -480,30 +649,22 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                 position: Offset.zero,
               ),
               isSelected: false,
+              isPaletteItem: true,
               onTap: () {},
             ),
           ),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Column(
-          children: [
-            SizedBox(
-              width: 80,
-              height: 40,
-              child: FlowchartNodeWidget(
-                node: FlowchartNode(
-                  id: 'tool',
-                  type: type,
-                  text: label,
-                  position: Offset.zero,
-                ),
-                isSelected: false,
-                onTap: () {},
-              ),
-            ),
-          ],
+      child: Tooltip(
+        message: label,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF3E3E5C),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white),
         ),
       ),
     );
