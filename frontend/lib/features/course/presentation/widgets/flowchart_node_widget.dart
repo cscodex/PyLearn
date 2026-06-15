@@ -101,7 +101,7 @@ class FlowchartNodeWidget extends StatelessWidget {
   });
 
   Color _getBorderColor() {
-    if (isHighlighted) return Colors.greenAccent;
+    if (isHighlighted) return const Color(0xFFFFD600); // Bright yellow for running
     if (isSelected && !isPaletteItem) return Colors.white;
     switch (node.type) {
       case FlowchartNodeType.oval:
@@ -116,6 +116,7 @@ class FlowchartNodeWidget extends StatelessWidget {
   }
 
   Color _getFillColor() {
+    if (isHighlighted) return const Color(0xFFFFD600).withOpacity(0.35);
     return _getBorderColor().withOpacity(0.15);
   }
 
@@ -172,7 +173,22 @@ class FlowchartNodeWidget extends StatelessWidget {
           child: Container(
             width: width,
             height: height,
-            decoration: isSelected && !isPaletteItem
+            decoration: isHighlighted
+                ? BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFD600).withOpacity(0.7),
+                        blurRadius: 25,
+                        spreadRadius: 8,
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFFFFD600).withOpacity(0.3),
+                        blurRadius: 40,
+                        spreadRadius: 15,
+                      ),
+                    ],
+                  )
+                : isSelected && !isPaletteItem
                 ? BoxDecoration(
                     boxShadow: [
                       BoxShadow(
