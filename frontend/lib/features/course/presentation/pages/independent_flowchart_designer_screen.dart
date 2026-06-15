@@ -871,6 +871,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                       edges: edges,
                       selectedNodeId: selectedNodeId,
                       selectedEdgeId: selectedEdgeId,
+                      runningNodeId: runningNodeId,
                       onNodeDropped: _onNodeDropped,
                       onNodeDragged: _onNodeDragged,
                       onNodeDragStart: (_) => _saveSnapshot(),
