@@ -48,6 +48,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   bool isRunning = false;
   String? runningNodeId;
   Map<String, double> variables = {};
+  int iterations = 0;
   List<String> consoleOutput = [];
 
   @override
@@ -489,11 +490,22 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       runningNodeId = startNode.id;
       variables.clear();
       consoleOutput.clear();
+      iterations = 0;
     });
 
     String? currentNodeId = startNode.id;
 
     while (currentNodeId != null && isRunning) {
+      iterations++;
+      if (iterations > 1000) {
+        setState(() {
+          consoleOutput.add("> Error: Maximum iterations (1000) reached. Infinite loop aborted.");
+          isRunning = false;
+          runningNodeId = null;
+        });
+        break;
+      }
+      
       setState(() => runningNodeId = currentNodeId);
       await Future.delayed(const Duration(milliseconds: 800)); // Animation pause
 
@@ -503,59 +515,96 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
       if (node.type == FlowchartNodeType.oval && node.text.toUpperCase().contains('END') && node.id != startNode.id) {
         setState(() {
-          consoleOutput.add("Execution finished.");
+          consoleOutput.add("> Execution finished.");
           isRunning = false;
           runningNodeId = null;
         });
         break;
       } else if (node.type == FlowchartNodeType.parallelogram) {
-        // I/O Node
-        final text = node.text.trim();
-        if (text.toLowerCase().startsWith('input')) {
-          final vars = text.substring(5).split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-          for (final v in vars) {
-            final value = await _promptInput(v);
-            if (value != null) {
-              variables[v] = value;
-              setState(() => consoleOutput.add("Input $v = $value"));
+        // I/O Node (Multi-line support)
+        final lines = node.text.split('\n');
+        for (var rawLine in lines) {
+          if (!isRunning) break;
+          final line = rawLine.trim();
+          if (line.isEmpty) continue;
+          
+          if (line.toLowerCase().startsWith('input')) {
+            final vars = line.substring(5).split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+            for (final v in vars) {
+              final value = await _promptInput(v);
+              if (value != null) {
+                variables[v] = value;
+                setState(() => consoleOutput.add("> Input $v = $value"));
+              }
             }
-          }
-        } else if (text.toLowerCase().startsWith('print')) {
-          final exprStr = text.substring(5).trim();
-          // Extremely basic print evaluator (single var or string)
-          if (exprStr.startsWith('"') || exprStr.startsWith("'")) {
-             setState(() => consoleOutput.add(exprStr.replaceAll('"', '').replaceAll("'", '')));
-          } else if (variables.containsKey(exprStr)) {
-             setState(() => consoleOutput.add(variables[exprStr]!.toString()));
-          } else {
-             try {
-                final p = Parser();
-                final exp = p.parse(exprStr);
-                final cm = ContextModel();
-                variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
-                final res = exp.evaluate(EvaluationType.REAL, cm);
-                setState(() => consoleOutput.add(res.toString()));
-             } catch (_) {
-                setState(() => consoleOutput.add(exprStr));
-             }
+          } else if (line.toLowerCase().startsWith('print')) {
+            final exprStr = line.substring(5).trim();
+            // Advanced Print Evaluator (split by commas outside quotes)
+            List<String> outputParts = [];
+            bool inQuotes = false;
+            String currentPart = "";
+            for (int i = 0; i < exprStr.length; i++) {
+              final c = exprStr[i];
+              if (c == '"' || c == "'") {
+                inQuotes = !inQuotes;
+                currentPart += c;
+              } else if (c == ',' && !inQuotes) {
+                outputParts.add(currentPart);
+                currentPart = "";
+              } else {
+                currentPart += c;
+              }
+            }
+            if (currentPart.isNotEmpty) outputParts.add(currentPart);
+            
+            String finalPrint = "> ";
+            for (final partRaw in outputParts) {
+              final part = partRaw.trim();
+              if (part.startsWith('"') || part.startsWith("'")) {
+                finalPrint += part.replaceAll('"', '').replaceAll("'", '');
+              } else {
+                 try {
+                    final p = Parser();
+                    final exp = p.parse(part);
+                    final cm = ContextModel();
+                    variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
+                    final res = exp.evaluate(EvaluationType.REAL, cm);
+                    // Format to drop .0 if integer
+                    if (res == res.truncateToDouble()) {
+                       finalPrint += res.toInt().toString();
+                    } else {
+                       finalPrint += res.toString();
+                    }
+                 } catch (_) {
+                    finalPrint += part; // fallback to raw string if not evaluatable
+                 }
+              }
+            }
+            setState(() => consoleOutput.add(finalPrint));
           }
         }
       } else if (node.type == FlowchartNodeType.rectangle) {
-        // Process Node
-        final text = node.text;
-        if (text.contains('=')) {
-          final parts = text.split('=');
-          final varName = parts[0].trim();
-          final exprStr = parts.sublist(1).join('=').trim();
-          try {
-            final p = Parser();
-            final exp = p.parse(exprStr);
-            final cm = ContextModel();
-            variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
-            final res = exp.evaluate(EvaluationType.REAL, cm);
-            variables[varName] = res;
-          } catch (e) {
-            setState(() => consoleOutput.add("Error evaluating $exprStr: $e"));
+        // Process Node (Multi-line support)
+        final lines = node.text.split('\n');
+        for (var rawLine in lines) {
+          final line = rawLine.trim();
+          if (line.isEmpty) continue;
+          if (line.contains('=')) {
+            final parts = line.split('=');
+            final varName = parts[0].trim();
+            final exprStr = parts.sublist(1).join('=').trim();
+            try {
+              final p = Parser();
+              final exp = p.parse(exprStr);
+              final cm = ContextModel();
+              variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
+              final res = exp.evaluate(EvaluationType.REAL, cm);
+              variables[varName] = res;
+              // Trigger variable UI update
+              setState((){});
+            } catch (e) {
+              setState(() => consoleOutput.add("> Error evaluating $exprStr: $e"));
+            }
           }
         }
       }
@@ -595,8 +644,9 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                double right = p.parse(parts[1].trim()).evaluate(EvaluationType.REAL, cm);
                result = left == right;
             }
+            setState(() => consoleOutput.add("> Condition ($text) evaluated to ${result ? 'True' : 'False'}"));
          } catch (e) {
-            setState(() => consoleOutput.add("Error evaluating condition $text"));
+            setState(() => consoleOutput.add("> Error evaluating condition $text"));
          }
 
          // Look for matching edge
@@ -619,7 +669,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
       if (nextNodeId == null) {
         setState(() {
-           consoleOutput.add("Execution finished. No more steps.");
+           consoleOutput.add("> Execution finished. No more steps.");
            isRunning = false;
            runningNodeId = null;
         });
@@ -913,40 +963,114 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             Positioned(
               left: 16,
               right: 16,
-              top: 16,
+              bottom: 100,
               child: Container(
-                height: 150,
+                height: 240,
                 decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.greenAccent),
+                  color: Colors.black.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white24),
+                  boxShadow: [
+                    BoxShadow(color: Colors.greenAccent.withOpacity(0.1), blurRadius: 20, spreadRadius: 5),
+                    BoxShadow(color: Colors.purpleAccent.withOpacity(0.1), blurRadius: 20, spreadRadius: 5),
+                  ],
                 ),
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Console Output', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white54, size: 20),
-                          onPressed: () => setState(() => consoleOutput.clear()),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                    const Divider(color: Colors.white24),
+                    // Left Side: Console Output
                     Expanded(
-                      child: ListView.builder(
-                        itemCount: consoleOutput.length,
-                        itemBuilder: (context, index) {
-                          return Text(
-                            '> ${consoleOutput[index]}',
-                            style: const TextStyle(color: Colors.green, fontFamily: 'monospace', fontSize: 14),
-                          );
-                        },
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Console Output', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+                              IconButton(
+                                icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                                onPressed: () => setState(() => consoleOutput.clear()),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                          const Divider(color: Colors.white24),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: consoleOutput.length,
+                              itemBuilder: (context, index) {
+                                return Text(
+                                  consoleOutput[index],
+                                  style: const TextStyle(color: Colors.green, fontFamily: 'monospace', fontSize: 13),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const VerticalDivider(color: Colors.white24, width: 24),
+                    // Right Side: State & Complexity
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('State & Complexity', style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+                          const Divider(color: Colors.white24),
+                          const Text('State Variables', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Expanded(
+                            child: variables.isEmpty 
+                              ? const Text('No variables', style: TextStyle(color: Colors.white54, fontSize: 12))
+                              : ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  itemCount: variables.length,
+                                  itemBuilder: (context, index) {
+                                    final key = variables.keys.elementAt(index);
+                                    final value = variables[key]!;
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 2),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(key, style: const TextStyle(color: Colors.white70, fontFamily: 'monospace', fontSize: 13)),
+                                          Text(value == value.truncateToDouble() ? value.toInt().toString() : value.toString(), style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13)),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                          ),
+                          const Divider(color: Colors.white24),
+                          const Text('Algorithm Metrics', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Iterations', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                              Text('$iterations', style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Space', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                              Text('O(${variables.length})', style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Time', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                              Text('O(N)', style: TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
