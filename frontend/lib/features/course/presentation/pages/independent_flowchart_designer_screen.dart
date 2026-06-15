@@ -48,6 +48,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   bool isRunning = false;
   String? runningNodeId;
   Map<String, double> variables = {};
+  Map<String, List<double>> arrays = {};
   int iterations = 0;
   List<String> consoleOutput = [];
 
@@ -526,6 +527,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       isRunning = true;
       runningNodeId = startNode.id;
       variables.clear();
+      arrays.clear();
       consoleOutput.clear();
       iterations = 0;
     });
@@ -601,16 +603,18 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                 finalPrint += part.replaceAll('"', '').replaceAll("'", '');
               } else {
                  try {
-                    final p = Parser();
-                    final exp = p.parse(part);
-                    final cm = ContextModel();
-                    variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
-                    final res = exp.evaluate(EvaluationType.REAL, cm);
-                    // Format to drop .0 if integer
-                    if (res == res.truncateToDouble()) {
-                       finalPrint += res.toInt().toString();
+                    if (arrays.containsKey(part)) {
+                       final list = arrays[part]!;
+                       final formattedList = list.map((e) => e == e.truncateToDouble() ? e.toInt() : e).toList();
+                       finalPrint += formattedList.toString();
                     } else {
-                       finalPrint += res.toString();
+                       final res = _evalExpr(part);
+                       // Format to drop .0 if integer
+                       if (res == res.truncateToDouble()) {
+                          finalPrint += res.toInt().toString();
+                       } else {
+                          finalPrint += res.toString();
+                       }
                     }
                  } catch (_) {
                     finalPrint += part; // fallback to raw string if not evaluatable
@@ -621,26 +625,70 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
           }
         }
       } else if (node.type == FlowchartNodeType.rectangle) {
-        // Process Node (Multi-line support)
+        // Process Node (Multi-line support with arrays)
         final lines = node.text.split('\n');
         for (var rawLine in lines) {
           final line = rawLine.trim();
           if (line.isEmpty) continue;
-          if (line.contains('=')) {
-            final parts = line.split('=');
-            final varName = parts[0].trim();
-            final exprStr = parts.sublist(1).join('=').trim();
-            try {
-              final p = Parser();
-              final exp = p.parse(exprStr);
-              final cm = ContextModel();
-              variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
-              final res = exp.evaluate(EvaluationType.REAL, cm);
-              variables[varName] = res;
-              // Trigger variable UI update
-              setState((){});
-            } catch (e) {
-              setState(() => consoleOutput.add("> Error evaluating $exprStr: $e"));
+          
+          // swap arr[i], arr[j]
+          if (line.toLowerCase().startsWith('swap ')) {
+            final swapExpr = line.substring(5).trim();
+            final swapParts = swapExpr.split(',').map((s) => s.trim()).toList();
+            if (swapParts.length == 2) {
+              try {
+                final v1 = _resolveArrayAccess(swapParts[0]);
+                final v2 = _resolveArrayAccess(swapParts[1]);
+                if (v1 != null && v2 != null) {
+                  final temp = v1['value'] as double;
+                  _setArrayElement(swapParts[0], v2['value'] as double);
+                  _setArrayElement(swapParts[1], temp);
+                  setState(() => consoleOutput.add("> Swapped ${swapParts[0]} ↔ ${swapParts[1]}"));
+                }
+              } catch (e) {
+                setState(() => consoleOutput.add("> Error in swap: $e"));
+              }
+            }
+          } else if (line.contains('=')) {
+            final eqIndex = line.indexOf('=');
+            // Check it's not == 
+            if (eqIndex > 0 && line[eqIndex - 1] != '!' && line[eqIndex - 1] != '<' && line[eqIndex - 1] != '>' && (eqIndex + 1 >= line.length || line[eqIndex + 1] != '=')) {
+              final lhs = line.substring(0, eqIndex).trim();
+              final rhs = line.substring(eqIndex + 1).trim();
+              
+              // Array initialization: arr = [1, 2, 3]
+              if (rhs.startsWith('[') && rhs.endsWith(']')) {
+                final inner = rhs.substring(1, rhs.length - 1);
+                final elements = inner.split(',').map((e) => _evalExpr(e.trim())).toList();
+                arrays[lhs] = elements;
+                setState((){});
+              }
+              // Array element write: arr[i] = expr
+              else if (lhs.contains('[') && lhs.contains(']')) {
+                final val = _evalExpr(rhs);
+                _setArrayElement(lhs, val);
+                setState((){});
+              }
+              // len(arr)
+              else if (rhs.startsWith('len(') && rhs.endsWith(')')) {
+                final arrName = rhs.substring(4, rhs.length - 1).trim();
+                if (arrays.containsKey(arrName)) {
+                  variables[lhs] = arrays[arrName]!.length.toDouble();
+                } else {
+                  variables[lhs] = 0;
+                }
+                setState((){});
+              }
+              // Array element read: x = arr[i]
+              else {
+                try {
+                  final val = _evalExpr(rhs);
+                  variables[lhs] = val;
+                  setState((){});
+                } catch (e) {
+                  setState(() => consoleOutput.add("> Error evaluating $rhs: $e"));
+                }
+              }
             }
           }
         }
@@ -650,36 +698,47 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       String? nextNodeId;
 
       if (node.type == FlowchartNodeType.diamond) {
-         // Decision Node
+         // Decision Node with full operator support
          final text = node.text.trim();
          bool result = false;
          
-         // Custom simple boolean evaluator for > < ==
          try {
-            if (text.contains('>')) {
-               final parts = text.split('>');
-               final p = Parser();
-               final cm = ContextModel();
-               variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
-               double left = p.parse(parts[0].trim()).evaluate(EvaluationType.REAL, cm);
-               double right = p.parse(parts[1].trim()).evaluate(EvaluationType.REAL, cm);
-               result = left > right;
-            } else if (text.contains('<')) {
-               final parts = text.split('<');
-               final p = Parser();
-               final cm = ContextModel();
-               variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
-               double left = p.parse(parts[0].trim()).evaluate(EvaluationType.REAL, cm);
-               double right = p.parse(parts[1].trim()).evaluate(EvaluationType.REAL, cm);
-               result = left < right;
+            String op = '';
+            List<String> parts = [];
+            
+            // Check operators in correct order (longer first)
+            if (text.contains('>=')) {
+               op = '>=';
+               parts = text.split('>=');
+            } else if (text.contains('<=')) {
+               op = '<=';
+               parts = text.split('<=');
+            } else if (text.contains('!=')) {
+               op = '!=';
+               parts = text.split('!=');
             } else if (text.contains('==')) {
-               final parts = text.split('==');
-               final p = Parser();
-               final cm = ContextModel();
-               variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
-               double left = p.parse(parts[0].trim()).evaluate(EvaluationType.REAL, cm);
-               double right = p.parse(parts[1].trim()).evaluate(EvaluationType.REAL, cm);
-               result = left == right;
+               op = '==';
+               parts = text.split('==');
+            } else if (text.contains('>')) {
+               op = '>';
+               parts = text.split('>');
+            } else if (text.contains('<')) {
+               op = '<';
+               parts = text.split('<');
+            }
+
+            if (parts.length == 2 && op.isNotEmpty) {
+               double left = _evalExpr(parts[0].trim());
+               double right = _evalExpr(parts[1].trim());
+               
+               switch (op) {
+                 case '>': result = left > right; break;
+                 case '<': result = left < right; break;
+                 case '>=': result = left >= right; break;
+                 case '<=': result = left <= right; break;
+                 case '==': result = left == right; break;
+                 case '!=': result = left != right; break;
+               }
             }
             setState(() => consoleOutput.add("> Condition ($text) evaluated to ${result ? 'True' : 'False'}"));
          } catch (e) {
@@ -719,6 +778,58 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       }
       
       currentNodeId = nextNodeId;
+    }
+  }
+
+  double _evalExpr(String exprStr) {
+    // Check if it's an array access like arr[i]
+    final arrVal = _resolveArrayAccess(exprStr);
+    if (arrVal != null) return arrVal['value'] as double;
+    
+    // Otherwise it's a normal math expression
+    final p = Parser();
+    final exp = p.parse(exprStr);
+    final cm = ContextModel();
+    variables.forEach((key, val) => cm.bindVariableName(key, Number(val)));
+    return exp.evaluate(EvaluationType.REAL, cm);
+  }
+
+  Map<String, dynamic>? _resolveArrayAccess(String exprStr) {
+    exprStr = exprStr.trim();
+    if (!exprStr.contains('[') || !exprStr.endsWith(']')) return null;
+    
+    final bracketIndex = exprStr.indexOf('[');
+    final arrName = exprStr.substring(0, bracketIndex).trim();
+    final indexExpr = exprStr.substring(bracketIndex + 1, exprStr.length - 1).trim();
+    
+    if (arrays.containsKey(arrName)) {
+      final index = _evalExpr(indexExpr).toInt();
+      final list = arrays[arrName]!;
+      if (index >= 0 && index < list.length) {
+        return {'array': arrName, 'index': index, 'value': list[index]};
+      } else {
+        throw Exception("Index $index out of bounds for array $arrName (length ${list.length})");
+      }
+    }
+    return null;
+  }
+
+  void _setArrayElement(String exprStr, double value) {
+    exprStr = exprStr.trim();
+    final bracketIndex = exprStr.indexOf('[');
+    final arrName = exprStr.substring(0, bracketIndex).trim();
+    final indexExpr = exprStr.substring(bracketIndex + 1, exprStr.length - 1).trim();
+    
+    if (arrays.containsKey(arrName)) {
+      final index = _evalExpr(indexExpr).toInt();
+      final list = arrays[arrName]!;
+      if (index >= 0 && index < list.length) {
+        list[index] = value;
+      } else {
+         throw Exception("Index $index out of bounds for array $arrName (length ${list.length})");
+      }
+    } else {
+       throw Exception("Array $arrName not initialized. Initialize with $arrName = [...] first.");
     }
   }
 
@@ -808,30 +919,155 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF2C2C3E),
-          title: const Text('How to Connect Arrows', style: TextStyle(color: Colors.white)),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('1. Drag shapes from the purple toolbox onto the grid.', style: TextStyle(color: Colors.white70)),
-              SizedBox(height: 8),
-              Text('2. Tap a shape to select it.', style: TextStyle(color: Colors.white70)),
-              SizedBox(height: 8),
-              Text('3. Tap an anchor dot on a shape to start an arrow. It will turn green.', style: TextStyle(color: Colors.white70)),
-              SizedBox(height: 8),
-              Text('4. Tap an anchor dot on another shape to connect them.', style: TextStyle(color: Colors.white70)),
-              SizedBox(height: 8),
-              Text('5. Tap a selected shape again to edit or delete it.', style: TextStyle(color: Colors.white70)),
-            ],
+          title: const Text('Flowchart Syntax Guide', style: TextStyle(color: Colors.white, fontSize: 18)),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 420,
+            child: DefaultTabController(
+              length: 4,
+              child: Column(
+                children: [
+                  const TabBar(
+                    isScrollable: true,
+                    indicatorColor: Colors.purpleAccent,
+                    labelColor: Colors.purpleAccent,
+                    unselectedLabelColor: Colors.white54,
+                    labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    tabs: [
+                      Tab(text: 'Basics'),
+                      Tab(text: 'Process'),
+                      Tab(text: 'I/O'),
+                      Tab(text: 'Decision'),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        // BASICS TAB
+                        SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _helpSection('How to Build', [
+                                '1. Drag shapes from the toolbox',
+                                '2. Tap a shape to select it',
+                                '3. Tap anchor dot → tap another anchor to connect',
+                                '4. Double-tap a shape to edit text',
+                                '5. Label decision edges "Yes" / "No"',
+                                '6. Press ▶ Play to simulate',
+                              ]),
+                              _helpSection('Shape Types', [
+                                '⬭ Oval → Start / End',
+                                '▱ Parallelogram → Input / Output',
+                                '▭ Rectangle → Process (code)',
+                                '◇ Diamond → Decision (condition)',
+                              ]),
+                            ],
+                          ),
+                        ),
+                        // PROCESS TAB
+                        SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _helpSection('Variables', [
+                                'x = 5',
+                                'y = x + 10',
+                                'z = x * y - 3',
+                              ]),
+                              _helpSection('Arrays', [
+                                'arr = [5, 3, 8, 1, 2]',
+                                'x = arr[i]       ← read element',
+                                'arr[i] = x       ← write element',
+                                'n = len(arr)     ← array length',
+                                'swap arr[i], arr[j]  ← swap',
+                              ]),
+                              _helpSection('Multi-line', [
+                                'Write multiple lines:',
+                                'i = 0',
+                                'j = n - 1',
+                                'temp = arr[i]',
+                              ]),
+                            ],
+                          ),
+                        ),
+                        // I/O TAB
+                        SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _helpSection('Input', [
+                                'input x          ← prompt for x',
+                                'input x, y       ← prompt multiple',
+                              ]),
+                              _helpSection('Print', [
+                                'print x',
+                                'print "Sum = ", x + y',
+                                'print arr         ← print array',
+                                'print arr[i]      ← print element',
+                                'print "Sorted: ", arr',
+                              ]),
+                            ],
+                          ),
+                        ),
+                        // DECISION TAB
+                        SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _helpSection('Operators', [
+                                'x > 5      ← greater than',
+                                'x < 10     ← less than',
+                                'x >= 5     ← greater or equal',
+                                'x <= 10    ← less or equal',
+                                'x == 0     ← equal to',
+                                'x != y     ← not equal',
+                              ]),
+                              _helpSection('Array Conditions', [
+                                'arr[j] > arr[j+1]',
+                                'i < len(arr)',
+                                'arr[i] != 0',
+                              ]),
+                              _helpSection('Edge Labels', [
+                                'Label edges "Yes" or "No"',
+                                'Also accepts "True" / "False"',
+                              ]),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Got it', style: TextStyle(color: Colors.purpleAccent)),
+              child: const Text('Got it!', style: TextStyle(color: Colors.purpleAccent)),
             ),
           ],
         );
       },
+    );
+  }
+
+  static Widget _helpSection(String title, List<String> items) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 4),
+          ...items.map((item) => Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 3),
+            child: Text(item, style: const TextStyle(color: Colors.white70, fontFamily: 'monospace', fontSize: 12)),
+          )),
+        ],
+      ),
     );
   }
 
@@ -1011,7 +1247,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
               right: 16,
               bottom: 100,
               child: Container(
-                height: 240,
+                height: 280,
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.85),
                   borderRadius: BorderRadius.circular(16),
@@ -1054,6 +1290,55 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                               },
                             ),
                           ),
+                          // Array Visualization Bar (Only shown if arrays exist)
+                          if (arrays.isNotEmpty) ...[
+                            const Divider(color: Colors.white24),
+                            const Text('Array Visualization', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                            const SizedBox(height: 4),
+                            SizedBox(
+                              height: 60,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: arrays.length,
+                                itemBuilder: (context, arrIndex) {
+                                  final arrName = arrays.keys.elementAt(arrIndex);
+                                  final arr = arrays[arrName]!;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(arrName, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                                        Row(
+                                          children: List.generate(arr.length, (idx) {
+                                            final val = arr[idx];
+                                            final displayVal = val == val.truncateToDouble() ? val.toInt().toString() : val.toString();
+                                            return Container(
+                                              width: 36,
+                                              height: 36,
+                                              margin: const EdgeInsets.only(right: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white10,
+                                                border: Border.all(color: Colors.orangeAccent.withOpacity(0.5)),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Text(displayVal, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                                  Text('$idx', style: const TextStyle(color: Colors.white38, fontSize: 8)),
+                                                ],
+                                              ),
+                                            );
+                                          }),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1069,25 +1354,39 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                           const Text('State Variables', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 4),
                           Expanded(
-                            child: variables.isEmpty 
+                            child: (variables.isEmpty && arrays.isEmpty)
                               ? const Text('No variables', style: TextStyle(color: Colors.white54, fontSize: 12))
-                              : ListView.builder(
+                              : ListView(
                                   padding: EdgeInsets.zero,
-                                  itemCount: variables.length,
-                                  itemBuilder: (context, index) {
-                                    final key = variables.keys.elementAt(index);
-                                    final value = variables[key]!;
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 2),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(key, style: const TextStyle(color: Colors.white70, fontFamily: 'monospace', fontSize: 13)),
-                                          Text(value == value.truncateToDouble() ? value.toInt().toString() : value.toString(), style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13)),
-                                        ],
-                                      ),
-                                    );
-                                  },
+                                  children: [
+                                    ...variables.entries.map((e) {
+                                      final val = e.value;
+                                      final displayVal = val == val.truncateToDouble() ? val.toInt().toString() : val.toString();
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 2),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(e.key, style: const TextStyle(color: Colors.white70, fontFamily: 'monospace', fontSize: 13)),
+                                            Text(displayVal, style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13)),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                    ...arrays.entries.map((e) {
+                                      final displayList = e.value.map((v) => v == v.truncateToDouble() ? v.toInt() : v).toList();
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 2),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(e.key, style: const TextStyle(color: Colors.orangeAccent, fontFamily: 'monospace', fontSize: 13)),
+                                            Text(displayList.toString(), style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13)),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  ],
                                 ),
                           ),
                           const Divider(color: Colors.white24),
@@ -1105,7 +1404,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Space', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                              Text('O(${variables.length})', style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
+                              Text('O(${variables.length + arrays.values.fold<int>(0, (sum, list) => sum + list.length)})', style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
                             ],
                           ),
                           const SizedBox(height: 2),
