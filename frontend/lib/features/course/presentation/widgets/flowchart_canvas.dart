@@ -30,8 +30,11 @@ class EdgePainter extends CustomPainter {
   final List<FlowchartNode> nodes;
   final List<FlowchartEdge> edges;
   final String? selectedEdgeId;
+  final String? animatingEdgeFromId;
+  final String? animatingEdgeToId;
+  final double edgeAnimationProgress;
 
-  EdgePainter(this.nodes, this.edges, {this.selectedEdgeId});
+  EdgePainter(this.nodes, this.edges, {this.selectedEdgeId, this.animatingEdgeFromId, this.animatingEdgeToId, this.edgeAnimationProgress = 0.0});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -112,6 +115,37 @@ class EdgePainter extends CustomPainter {
               Offset(midPoint.dx - textPainter.width / 2,
                   midPoint.dy - textPainter.height / 2));
         }
+
+        // Draw traveling light orb on animating edge
+        if (edge.fromNodeId == animatingEdgeFromId && edge.toNodeId == animatingEdgeToId && edgeAnimationProgress > 0) {
+          final t = edgeAnimationProgress;
+          // Cubic bezier point at t
+          final mt = 1.0 - t;
+          final orbX = mt*mt*mt*fromCenter.dx + 3*mt*mt*t*cp1.dx + 3*mt*t*t*cp2.dx + t*t*t*toCenter.dx;
+          final orbY = mt*mt*mt*fromCenter.dy + 3*mt*mt*t*cp1.dy + 3*mt*t*t*cp2.dy + t*t*t*toCenter.dy;
+          final orbCenter = Offset(orbX, orbY);
+
+          // Outer glow
+          canvas.drawCircle(orbCenter, 18, Paint()..color = const Color(0xFFFFD600).withOpacity(0.15)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15));
+          // Mid glow
+          canvas.drawCircle(orbCenter, 10, Paint()..color = const Color(0xFFFFD600).withOpacity(0.4)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+          // Core
+          canvas.drawCircle(orbCenter, 5, Paint()..color = const Color(0xFFFFD600)..style = PaintingStyle.fill);
+          // Bright center
+          canvas.drawCircle(orbCenter, 2, Paint()..color = Colors.white..style = PaintingStyle.fill);
+
+          // Draw trail behind the orb
+          for (int i = 1; i <= 5; i++) {
+            final trailT = t - i * 0.04;
+            if (trailT < 0) break;
+            final tmt = 1.0 - trailT;
+            final tx = tmt*tmt*tmt*fromCenter.dx + 3*tmt*tmt*trailT*cp1.dx + 3*tmt*trailT*trailT*cp2.dx + trailT*trailT*trailT*toCenter.dx;
+            final ty = tmt*tmt*tmt*fromCenter.dy + 3*tmt*tmt*trailT*cp1.dy + 3*tmt*trailT*trailT*cp2.dy + trailT*trailT*trailT*toCenter.dy;
+            final opacity = 0.3 * (1.0 - i / 6.0);
+            final radius = 4.0 * (1.0 - i / 6.0);
+            canvas.drawCircle(Offset(tx, ty), radius, Paint()..color = const Color(0xFFFFD600).withOpacity(opacity)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+          }
+        }
       } catch (e) {
         // Node not found
       }
@@ -156,6 +190,9 @@ class FlowchartCanvas extends StatelessWidget {
   final String? selectedNodeId;
   final String? selectedEdgeId;
   final String? runningNodeId;
+  final String? animatingEdgeFromId;
+  final String? animatingEdgeToId;
+  final double edgeAnimationProgress;
   final Function(FlowchartNodeType, Offset) onNodeDropped;
   final Function(String, Offset) onNodeDragged;
   final Function(String) onNodeTapped;
@@ -178,6 +215,9 @@ class FlowchartCanvas extends StatelessWidget {
     this.selectedNodeId,
     this.selectedEdgeId,
     this.runningNodeId,
+    this.animatingEdgeFromId,
+    this.animatingEdgeToId,
+    this.edgeAnimationProgress = 0.0,
     this.onEdgeTapped,
     this.onEdgeCreate,
     this.onAnchorTapped,
@@ -224,7 +264,7 @@ class FlowchartCanvas extends StatelessWidget {
                 children: [
                   // Draw Edges bottom layer
                   CustomPaint(
-                    painter: EdgePainter(nodes, edges, selectedEdgeId: selectedEdgeId),
+                    painter: EdgePainter(nodes, edges, selectedEdgeId: selectedEdgeId, animatingEdgeFromId: animatingEdgeFromId, animatingEdgeToId: animatingEdgeToId, edgeAnimationProgress: edgeAnimationProgress),
                     child: Container(),
                   ),
                   // Draw Edge Labels

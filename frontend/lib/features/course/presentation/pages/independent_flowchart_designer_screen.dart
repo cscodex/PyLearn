@@ -28,7 +28,7 @@ class IndependentFlowchartDesignerScreen extends ConsumerStatefulWidget {
       _IndependentFlowchartDesignerScreenState();
 }
 
-class _IndependentFlowchartDesignerScreenState extends ConsumerState<IndependentFlowchartDesignerScreen> {
+class _IndependentFlowchartDesignerScreenState extends ConsumerState<IndependentFlowchartDesignerScreen> with TickerProviderStateMixin {
   int? loadedFlowchartId;
   List<FlowchartNode> nodes = [];
   List<FlowchartEdge> edges = [];
@@ -51,6 +51,12 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   int iterations = 0;
   List<String> consoleOutput = [];
 
+  // Edge animation state
+  String? animatingEdgeFromId;
+  String? animatingEdgeToId;
+  double edgeAnimationProgress = 0.0;
+  AnimationController? _edgeAnimController;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +66,37 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       edges = List.from(widget.initialFlowchart!.edges);
       flowchartTitle = widget.initialFlowchart!.title;
     }
+  }
+
+  @override
+  void dispose() {
+    _edgeAnimController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _animateEdgeTraversal(String fromNodeId, String toNodeId) async {
+    _edgeAnimController?.dispose();
+    _edgeAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    setState(() {
+      animatingEdgeFromId = fromNodeId;
+      animatingEdgeToId = toNodeId;
+      edgeAnimationProgress = 0.0;
+      runningNodeId = null; // Dim the node while light travels
+    });
+    _edgeAnimController!.addListener(() {
+      setState(() {
+        edgeAnimationProgress = _edgeAnimController!.value;
+      });
+    });
+    await _edgeAnimController!.forward();
+    setState(() {
+      animatingEdgeFromId = null;
+      animatingEdgeToId = null;
+      edgeAnimationProgress = 0.0;
+    });
   }
 
   void _saveSnapshot() {
@@ -507,7 +544,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       }
       
       setState(() => runningNodeId = currentNodeId);
-      await Future.delayed(const Duration(milliseconds: 800)); // Animation pause
+      await Future.delayed(const Duration(milliseconds: 600)); // Node highlight pause
 
       if (!isRunning) break;
 
@@ -674,6 +711,11 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
            runningNodeId = null;
         });
         break;
+      }
+
+      // Animate light traveling along the edge to the next node
+      if (isRunning && currentNodeId != null) {
+        await _animateEdgeTraversal(currentNodeId!, nextNodeId);
       }
       
       currentNodeId = nextNodeId;
@@ -872,6 +914,9 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                       selectedNodeId: selectedNodeId,
                       selectedEdgeId: selectedEdgeId,
                       runningNodeId: runningNodeId,
+                      animatingEdgeFromId: animatingEdgeFromId,
+                      animatingEdgeToId: animatingEdgeToId,
+                      edgeAnimationProgress: edgeAnimationProgress,
                       onNodeDropped: _onNodeDropped,
                       onNodeDragged: _onNodeDragged,
                       onNodeDragStart: (_) => _saveSnapshot(),
