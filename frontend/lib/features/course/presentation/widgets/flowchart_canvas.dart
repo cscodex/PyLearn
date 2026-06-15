@@ -126,9 +126,9 @@ class EdgePainter extends CustomPainter {
           final orbCenter = Offset(orbX, orbY);
 
           // Outer glow
-          canvas.drawCircle(orbCenter, 18, Paint()..color = const Color(0xFFFFD600).withOpacity(0.15)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15));
+          canvas.drawCircle(orbCenter, 18, Paint()..color = const Color(0xFFFFD600).withOpacity(0.15));
           // Mid glow
-          canvas.drawCircle(orbCenter, 10, Paint()..color = const Color(0xFFFFD600).withOpacity(0.4)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+          canvas.drawCircle(orbCenter, 10, Paint()..color = const Color(0xFFFFD600).withOpacity(0.4));
           // Core
           canvas.drawCircle(orbCenter, 5, Paint()..color = const Color(0xFFFFD600)..style = PaintingStyle.fill);
           // Bright center
@@ -142,8 +142,8 @@ class EdgePainter extends CustomPainter {
             final tx = tmt*tmt*tmt*fromCenter.dx + 3*tmt*tmt*trailT*cp1.dx + 3*tmt*trailT*trailT*cp2.dx + trailT*trailT*trailT*toCenter.dx;
             final ty = tmt*tmt*tmt*fromCenter.dy + 3*tmt*tmt*trailT*cp1.dy + 3*tmt*trailT*trailT*cp2.dy + trailT*trailT*trailT*toCenter.dy;
             final opacity = 0.3 * (1.0 - i / 6.0);
-            final radius = 4.0 * (1.0 - i / 6.0);
-            canvas.drawCircle(Offset(tx, ty), radius, Paint()..color = const Color(0xFFFFD600).withOpacity(opacity)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+            final radius = 5.0 * (1.0 - i / 6.0);
+            canvas.drawCircle(Offset(tx, ty), radius, Paint()..color = const Color(0xFFFFD600).withOpacity(opacity));
           }
         }
       } catch (e) {

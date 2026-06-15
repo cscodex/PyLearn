@@ -38,6 +38,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   FlowchartAnchor? connectingFromAnchor;
   bool isSaving = false;
   bool _isToolboxExpanded = false;
+  bool _showOverlays = true;
   String flowchartTitle = "My Flowchart";
 
   List<String> undoStack = [];
@@ -1113,6 +1114,11 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             onPressed: _showLoadDialog,
           ),
           IconButton(
+            icon: Icon(_showOverlays ? Icons.visibility : Icons.visibility_off),
+            tooltip: 'Toggle Overlays',
+            onPressed: () => setState(() => _showOverlays = !_showOverlays),
+          ),
+          IconButton(
             icon: const Icon(Icons.info_outline),
             tooltip: 'Instructions',
             onPressed: _showInstructionsDialog,
@@ -1240,16 +1246,16 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                 ),
               ),
             ),
-          // Console Output for Runner
-          if (isRunning || consoleOutput.isNotEmpty)
+          // Floating Console & State (bottom right)
+          if ((consoleOutput.isNotEmpty || variables.isNotEmpty || arrays.isNotEmpty) && _showOverlays)
             Positioned(
-              left: 16,
               right: 16,
               bottom: 100,
               child: Container(
+                width: 600,
                 height: 280,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.85),
+                  color: Colors.black.withOpacity(0.65),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white24),
                   boxShadow: [
@@ -1395,7 +1401,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Iterations', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                              const Text('Execution Steps', style: TextStyle(color: Colors.white70, fontSize: 12)),
                               Text('$iterations', style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
                             ],
                           ),
@@ -1407,14 +1413,6 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                               Text('O(${variables.length + arrays.values.fold<int>(0, (sum, list) => sum + list.length)})', style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Time', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                              Text('O(N)', style: TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
-                            ],
-                          ),
                         ],
                       ),
                     ),
@@ -1423,34 +1421,36 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
               ),
             ),
           // Undo/Redo Buttons
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'undo',
-                  backgroundColor: undoStack.isNotEmpty ? const Color(0xFF2C2C3E) : const Color(0xFF2C2C3E).withOpacity(0.5),
-                  onPressed: undoStack.isNotEmpty ? _undo : null,
-                  child: Icon(Icons.undo, color: undoStack.isNotEmpty ? Colors.white : Colors.white54),
-                ),
-                const SizedBox(width: 8),
-                FloatingActionButton.small(
-                  heroTag: 'redo',
-                  backgroundColor: redoStack.isNotEmpty ? const Color(0xFF2C2C3E) : const Color(0xFF2C2C3E).withOpacity(0.5),
-                  onPressed: redoStack.isNotEmpty ? _redo : null,
-                  child: Icon(Icons.redo, color: redoStack.isNotEmpty ? Colors.white : Colors.white54),
-                ),
-              ],
+          if (!isRunning && _showOverlays)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: 'undo',
+                    backgroundColor: undoStack.isNotEmpty ? const Color(0xFF2C2C3E) : const Color(0xFF2C2C3E).withOpacity(0.5),
+                    onPressed: undoStack.isNotEmpty ? _undo : null,
+                    child: Icon(Icons.undo, color: undoStack.isNotEmpty ? Colors.white : Colors.white54),
+                  ),
+                  const SizedBox(width: 8),
+                  FloatingActionButton.small(
+                    heroTag: 'redo',
+                    backgroundColor: redoStack.isNotEmpty ? const Color(0xFF2C2C3E) : const Color(0xFF2C2C3E).withOpacity(0.5),
+                    onPressed: redoStack.isNotEmpty ? _redo : null,
+                    child: Icon(Icons.redo, color: redoStack.isNotEmpty ? Colors.white : Colors.white54),
+                  ),
+                ],
+              ),
             ),
-          ),
           // Floating Toolbox
-          Positioned(
-            left: 16,
-            bottom: 16,
-            child: _buildFloatingToolbox(),
-          ),
+          if (_showOverlays)
+            Positioned(
+              left: 16,
+              bottom: 16,
+              child: _buildFloatingToolbox(),
+            ),
         ],
       ),
     );
