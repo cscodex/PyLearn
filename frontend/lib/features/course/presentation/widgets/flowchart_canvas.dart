@@ -97,13 +97,25 @@ class EdgePainter extends CustomPainter {
           final midX = 0.125 * fromCenter.dx + 0.375 * cp1.dx + 0.375 * cp2.dx + 0.125 * toCenter.dx;
           final midY = 0.125 * fromCenter.dy + 0.375 * cp1.dy + 0.375 * cp2.dy + 0.125 * toCenter.dy;
           final midPoint = Offset(midX, midY);
+          final lowerLabel = edge.label!.toLowerCase().trim();
+          bool isTrue = lowerLabel == 'true' || lowerLabel == 'yes';
+          bool isFalse = lowerLabel == 'false' || lowerLabel == 'no';
+          bool isAnimating = edge.fromNodeId == animatingEdgeFromId && edge.toNodeId == animatingEdgeToId;
+          // Midpoint is at t=0.5. Start highlighting when orb reaches 0.4 and keep it highlighted until animation ends.
+          bool isHighlighted = (isTrue || isFalse) && isAnimating && edgeAnimationProgress > 0.4;
+          
+          Color textColor = Colors.white;
+          if (isHighlighted) {
+            textColor = isTrue ? Colors.greenAccent : Colors.redAccent;
+          }
+
           final textSpan = TextSpan(
             text: edge.label,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
+            style: TextStyle(
+                color: textColor,
+                fontSize: isHighlighted ? 16 : 12,
                 fontWeight: FontWeight.bold,
-                backgroundColor: Colors.black54),
+                backgroundColor: isHighlighted ? Colors.black87 : Colors.black54),
           );
           final textPainter = TextPainter(
             text: textSpan,
