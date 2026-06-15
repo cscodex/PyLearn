@@ -740,6 +740,10 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                  case '==': result = left == right; break;
                  case '!=': result = left != right; break;
                }
+            } else if (text.toLowerCase() == 'true') {
+               result = true;
+            } else if (text.toLowerCase() == 'false') {
+               result = false;
             }
             setState(() => consoleOutput.add("> Condition ($text) evaluated to ${result ? 'True' : 'False'}"));
          } catch (e) {
@@ -1250,10 +1254,11 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
           if ((consoleOutput.isNotEmpty || variables.isNotEmpty || arrays.isNotEmpty) && _showOverlays)
             Positioned(
               right: 16,
+              left: MediaQuery.of(context).size.width < 650 ? 16 : null,
               bottom: 100,
               child: Container(
-                width: 600,
-                height: 280,
+                width: MediaQuery.of(context).size.width < 650 ? null : 600,
+                height: MediaQuery.of(context).size.width < 650 ? 400 : 280,
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.65),
                   borderRadius: BorderRadius.circular(16),
@@ -1264,7 +1269,8 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                   ],
                 ),
                 padding: const EdgeInsets.all(12.0),
-                child: Row(
+                child: Flex(
+                  direction: MediaQuery.of(context).size.width < 650 ? Axis.vertical : Axis.horizontal,
                   children: [
                     // Left Side: Console Output
                     Expanded(
@@ -1348,7 +1354,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                         ],
                       ),
                     ),
-                    const VerticalDivider(color: Colors.white24, width: 24),
+                    if (MediaQuery.of(context).size.width < 650) const Divider(color: Colors.white24, height: 24) else const VerticalDivider(color: Colors.white24, width: 24),
                     // Right Side: State & Complexity
                     Expanded(
                       flex: 2,
