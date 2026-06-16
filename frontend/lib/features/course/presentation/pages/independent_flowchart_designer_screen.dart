@@ -28,6 +28,34 @@ class IndependentFlowchartDesignerScreen extends ConsumerStatefulWidget {
       _IndependentFlowchartDesignerScreenState();
 }
 
+
+// Debugger State Snapshot for Prev/Next
+class ExecutionSnapshot {
+  final String? runningNodeId;
+  final Map<String, double> variables;
+  final Map<String, List<dynamic>> arrays;
+  final List<String> consoleOutput;
+  final int iterations;
+
+  ExecutionSnapshot({
+    required this.runningNodeId,
+    required this.variables,
+    required this.arrays,
+    required this.consoleOutput,
+    required this.iterations,
+  });
+
+  ExecutionSnapshot clone() {
+    return ExecutionSnapshot(
+      runningNodeId: runningNodeId,
+      variables: Map.from(variables),
+      arrays: Map.from(arrays.map((k, v) => MapEntry(k, List.from(v)))),
+      consoleOutput: List.from(consoleOutput),
+      iterations: iterations,
+    );
+  }
+}
+
 class _IndependentFlowchartDesignerScreenState extends ConsumerState<IndependentFlowchartDesignerScreen> with TickerProviderStateMixin {
   int? loadedFlowchartId;
   List<FlowchartNode> nodes = [];
@@ -47,11 +75,18 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
   // Runner state
   bool isRunning = false;
+  bool isPaused = false;
+  bool stepNext = false;
+  bool stepPrev = false;
   String? runningNodeId;
   Map<String, double> variables = {};
-  Map<String, List<double>> arrays = {};
+  Map<String, List<dynamic>> arrays = {};
   int iterations = 0;
   List<String> consoleOutput = [];
+  List<ExecutionSnapshot> executionHistory = [];
+  
+  // Static Pseudo-code generation
+  List<Map<String, dynamic>> staticPseudocode = []; // Stores {nodeId: ..., text: ...}
 
   // Edge animation state
   String? animatingEdgeFromId;
@@ -515,6 +550,31 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
   }
 
+  
+  void _generateStaticCode() {
+    final sortedNodes = List<FlowchartNode>.from(nodes)
+      ..sort((a, b) => a.position.dy.compareTo(b.position.dy));
+    
+    staticPseudocode.clear();
+    for (final node in sortedNodes) {
+      String text = node.text.trim();
+      if (text.isEmpty) continue;
+      
+      if (node.type == FlowchartNodeType.diamond) {
+        text = 'if (' + text.replaceAll('\\n', ' ') + ')';
+      } else if (node.type == FlowchartNodeType.parallelogram) {
+        // keep as is, maybe collapse newlines
+      }
+      
+      staticPseudocode.add({
+        'nodeId': node.id,
+        'text': text,
+        'type': node.type,
+      });
+    }
+    setState(() {});
+  }
+
   Future<void> _runFlowchart() async {
     if (nodes.isEmpty) return;
     
@@ -524,8 +584,14 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       orElse: () => nodes.firstWhere((n) => n.type == FlowchartNodeType.oval),
     );
 
+    _generateStaticCode();
+    
     setState(() {
       isRunning = true;
+      isPaused = false;
+      stepNext = false;
+      stepPrev = false;
+      executionHistory.clear();
       runningNodeId = startNode.id;
       variables.clear();
       arrays.clear();
@@ -536,6 +602,44 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     String? currentNodeId = startNode.id;
 
     while (currentNodeId != null && isRunning) {
+      if (isPaused) {
+        if (stepPrev) {
+          stepPrev = false;
+          if (executionHistory.isNotEmpty) {
+            final snapshot = executionHistory.removeLast();
+            setState(() {
+              runningNodeId = snapshot.runningNodeId;
+              variables = Map.from(snapshot.variables);
+              arrays = Map.from(snapshot.arrays.map((k, v) => MapEntry(k, List.from(v))));
+              consoleOutput = List.from(snapshot.consoleOutput);
+              iterations = snapshot.iterations;
+            });
+            currentNodeId = runningNodeId;
+            // Un-animate edge if we step back
+            setState(() {
+              edgeAnimationProgress = 0.0;
+            });
+            continue;
+          }
+        } else if (stepNext) {
+          stepNext = false;
+        } else {
+          await Future.delayed(const Duration(milliseconds: 50));
+          continue;
+        }
+      } else {
+        await Future.delayed(const Duration(milliseconds: 600)); // Node highlight pause
+      }
+
+      // Push history snapshot before executing this node
+      executionHistory.add(ExecutionSnapshot(
+        runningNodeId: currentNodeId,
+        variables: Map.from(variables),
+        arrays: Map.from(arrays.map((k, v) => MapEntry(k, List.from(v)))),
+        consoleOutput: List.from(consoleOutput),
+        iterations: iterations,
+      ));
+
       iterations++;
       if (iterations > 1000) {
         setState(() {
@@ -547,7 +651,6 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       }
       
       setState(() => runningNodeId = currentNodeId);
-      await Future.delayed(const Duration(milliseconds: 600)); // Node highlight pause
 
       if (!isRunning) break;
 
@@ -1076,6 +1179,154 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     );
   }
 
+
+  Widget _buildUnifiedConsole() {
+    // Generate distinct colors for variables
+    final List<Color> pillColors = [Colors.blueAccent, Colors.pinkAccent, Colors.purpleAccent, Colors.orangeAccent, Colors.tealAccent];
+    final Map<String, Color> varColors = {};
+    int colorIdx = 0;
+    for (final v in variables.keys) {
+      varColors[v] = pillColors[colorIdx % pillColors.length];
+      colorIdx++;
+    }
+    for (final a in arrays.keys) {
+      if (!varColors.containsKey(a)) {
+        varColors[a] = pillColors[colorIdx % pillColors.length];
+        colorIdx++;
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Debugger Controls & Legend
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(isPaused ? Icons.play_arrow : Icons.pause, color: Colors.greenAccent),
+                  tooltip: isPaused ? 'Resume' : 'Pause',
+                  onPressed: () => setState(() => isPaused = !isPaused),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.skip_previous, color: Colors.white70),
+                  tooltip: 'Step Prev',
+                  onPressed: isPaused && executionHistory.isNotEmpty ? () => setState(() => stepPrev = true) : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.skip_next, color: Colors.white70),
+                  tooltip: 'Step Next',
+                  onPressed: isPaused ? () => setState(() => stepNext = true) : null,
+                ),
+                const SizedBox(width: 8),
+                const Text('Debugger', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            // Legend
+            if (varColors.isNotEmpty)
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: true,
+                  child: Row(
+                    children: varColors.entries.map((e) => Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: e.value, borderRadius: BorderRadius.circular(12)),
+                        child: Text(e.key, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
+                      ),
+                    )).toList(),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const Divider(color: Colors.white24),
+        
+        // Static Code View
+        Expanded(
+          flex: 3,
+          child: ListView.builder(
+            itemCount: staticPseudocode.length,
+            itemBuilder: (context, index) {
+              final line = staticPseudocode[index];
+              final bool isActive = line['nodeId'] == runningNodeId;
+              
+              // Highlight variables in text
+              List<InlineSpan> spans = [];
+              String rawText = line['text'];
+              
+              // Tokenize string roughly by words to colorize matching variables
+              final words = rawText.split(RegExp(r'(\b|\s+)'));
+              for (String w in words) {
+                 final cleanW = w.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+                 if (varColors.containsKey(cleanW)) {
+                    spans.add(WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(color: varColors[cleanW], borderRadius: BorderRadius.circular(4)),
+                        child: Text(w, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ));
+                    // Inject value if active
+                    if (isActive) {
+                       dynamic val;
+                       if (variables.containsKey(cleanW)) {
+                         val = variables[cleanW] == variables[cleanW]!.truncateToDouble() ? variables[cleanW]!.toInt() : variables[cleanW];
+                       } else if (arrays.containsKey(cleanW)) {
+                         val = arrays[cleanW]!.map((e) => e == e.truncateToDouble() ? e.toInt() : e).toList();
+                       }
+                       if (val != null) {
+                          spans.add(TextSpan(text: ' [${val}] ', style: TextStyle(color: varColors[cleanW], fontWeight: FontWeight.bold, fontSize: 11)));
+                       }
+                    }
+                 } else {
+                    spans.add(TextSpan(text: w));
+                 }
+              }
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                margin: const EdgeInsets.only(bottom: 4),
+                decoration: BoxDecoration(
+                  color: isActive ? Colors.yellowAccent.withOpacity(0.2) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                  border: isActive ? Border.all(color: Colors.yellowAccent, width: 1.5) : null,
+                ),
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(color: isActive ? Colors.white : Colors.white70, fontFamily: 'monospace', fontSize: 14),
+                    children: spans,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        
+        // Output Console
+        if (consoleOutput.isNotEmpty) ...[
+          const Divider(color: Colors.white24),
+          const Text('Console Output', style: TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+          Expanded(
+            flex: 1,
+            child: ListView.builder(
+              itemCount: consoleOutput.length,
+              itemBuilder: (context, index) {
+                return Text(consoleOutput[index], style: const TextStyle(color: Colors.green, fontFamily: 'monospace', fontSize: 12));
+              },
+            ),
+          ),
+        ]
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1258,7 +1509,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
               bottom: 100,
               child: Container(
                 width: MediaQuery.of(context).size.width < 650 ? null : 600,
-                height: MediaQuery.of(context).size.width < 650 ? 400 : 280,
+                height: MediaQuery.of(context).size.width < 650 ? 500 : 400,
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.65),
                   borderRadius: BorderRadius.circular(16),
@@ -1269,161 +1520,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                   ],
                 ),
                 padding: const EdgeInsets.all(12.0),
-                child: Flex(
-                  direction: MediaQuery.of(context).size.width < 650 ? Axis.vertical : Axis.horizontal,
-                  children: [
-                    // Left Side: Console Output
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Console Output', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
-                              IconButton(
-                                icon: const Icon(Icons.close, color: Colors.white54, size: 20),
-                                onPressed: () => setState(() => consoleOutput.clear()),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                            ],
-                          ),
-                          const Divider(color: Colors.white24),
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: consoleOutput.length,
-                              itemBuilder: (context, index) {
-                                return Text(
-                                  consoleOutput[index],
-                                  style: const TextStyle(color: Colors.green, fontFamily: 'monospace', fontSize: 13),
-                                );
-                              },
-                            ),
-                          ),
-                          // Array Visualization Bar (Only shown if arrays exist)
-                          if (arrays.isNotEmpty) ...[
-                            const Divider(color: Colors.white24),
-                            const Text('Array Visualization', style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 14)),
-                            const SizedBox(height: 4),
-                            SizedBox(
-                              height: 60,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: arrays.length,
-                                itemBuilder: (context, arrIndex) {
-                                  final arrName = arrays.keys.elementAt(arrIndex);
-                                  final arr = arrays[arrName]!;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(arrName, style: const TextStyle(color: Colors.white70, fontSize: 10)),
-                                        Row(
-                                          children: List.generate(arr.length, (idx) {
-                                            final val = arr[idx];
-                                            final displayVal = val == val.truncateToDouble() ? val.toInt().toString() : val.toString();
-                                            return Container(
-                                              width: 36,
-                                              height: 36,
-                                              margin: const EdgeInsets.only(right: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white10,
-                                                border: Border.all(color: Colors.orangeAccent.withOpacity(0.5)),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Text(displayVal, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                                                  Text('$idx', style: const TextStyle(color: Colors.white38, fontSize: 8)),
-                                                ],
-                                              ),
-                                            );
-                                          }),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (MediaQuery.of(context).size.width < 650) const Divider(color: Colors.white24, height: 24) else const VerticalDivider(color: Colors.white24, width: 24),
-                    // Right Side: State & Complexity
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('State & Complexity', style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold, fontSize: 16)),
-                          const Divider(color: Colors.white24),
-                          const Text('State Variables', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 4),
-                          Expanded(
-                            child: (variables.isEmpty && arrays.isEmpty)
-                              ? const Text('No variables', style: TextStyle(color: Colors.white54, fontSize: 12))
-                              : ListView(
-                                  padding: EdgeInsets.zero,
-                                  children: [
-                                    ...variables.entries.map((e) {
-                                      final val = e.value;
-                                      final displayVal = val == val.truncateToDouble() ? val.toInt().toString() : val.toString();
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 2),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(e.key, style: const TextStyle(color: Colors.white70, fontFamily: 'monospace', fontSize: 13)),
-                                            Text(displayVal, style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13)),
-                                          ],
-                                        ),
-                                      );
-                                    }),
-                                    ...arrays.entries.map((e) {
-                                      final displayList = e.value.map((v) => v == v.truncateToDouble() ? v.toInt() : v).toList();
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 2),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(e.key, style: const TextStyle(color: Colors.orangeAccent, fontFamily: 'monospace', fontSize: 13)),
-                                            Text(displayList.toString(), style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13)),
-                                          ],
-                                        ),
-                                      );
-                                    }),
-                                  ],
-                                ),
-                          ),
-                          const Divider(color: Colors.white24),
-                          const Text('Algorithm Metrics', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Execution Steps', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                              Text('$iterations', style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Space', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                              Text('O(${variables.length + arrays.values.fold<int>(0, (sum, list) => sum + list.length)})', style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 12)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                child: _buildUnifiedConsole(),
               ),
             ),
           // Undo/Redo Buttons
