@@ -602,6 +602,8 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     String? currentNodeId = startNode.id;
 
     while (currentNodeId != null && isRunning) {
+      setState(() => runningNodeId = currentNodeId);
+      
       if (isPaused) {
         if (stepPrev) {
           stepPrev = false;
@@ -649,8 +651,6 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
         });
         break;
       }
-      
-      setState(() => runningNodeId = currentNodeId);
 
       if (!isRunning) break;
 
