@@ -101,8 +101,7 @@ class EdgePainter extends CustomPainter {
           bool isTrue = lowerLabel == 'true' || lowerLabel == 'yes';
           bool isFalse = lowerLabel == 'false' || lowerLabel == 'no';
           bool isAnimating = edge.fromNodeId == animatingEdgeFromId && edge.toNodeId == animatingEdgeToId;
-          // Midpoint is at t=0.5. Start highlighting when orb reaches 0.4 and keep it highlighted until animation ends.
-          bool isHighlighted = (isTrue || isFalse) && isAnimating && edgeAnimationProgress > 0.4;
+          bool isHighlighted = (isTrue || isFalse) && isAnimating;
           
           Color textColor = Colors.white;
           if (isHighlighted) {
@@ -113,9 +112,11 @@ class EdgePainter extends CustomPainter {
             text: edge.label,
             style: TextStyle(
                 color: textColor,
-                fontSize: isHighlighted ? 16 : 12,
+                fontSize: isHighlighted ? 18 : 12,
                 fontWeight: FontWeight.bold,
-                backgroundColor: isHighlighted ? Colors.black87 : Colors.black54),
+                backgroundColor: isHighlighted ? Colors.black87 : Colors.black54,
+                shadows: isHighlighted ? [Shadow(color: textColor, blurRadius: 15), Shadow(color: textColor, blurRadius: 5)] : null,
+            ),
           );
           final textPainter = TextPainter(
             text: textSpan,

@@ -561,7 +561,31 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       if (text.isEmpty) continue;
       
       if (node.type == FlowchartNodeType.diamond) {
-        text = 'if (' + text.replaceAll('\\n', ' ') + ')';
+        // Check if any outgoing edge points to a node higher up (y coordinate is smaller) -> indicates a loop
+        bool isLoop = false;
+        // Check if there is any incoming edge to this diamond from a node that is lower (larger Y)
+        final incomingEdges = edges.where((e) => e.toNodeId == node.id).toList();
+        for (final edge in incomingEdges) {
+           final sourceNode = nodes.firstWhere((n) => n.id == edge.fromNodeId, orElse: () => node);
+           if (sourceNode.position.dy >= node.position.dy && sourceNode.id != node.id) {
+              isLoop = true;
+              break;
+           }
+        }
+        // Check outgoing to above (do-while style)
+        final outgoingEdges = edges.where((e) => e.fromNodeId == node.id).toList();
+        for (final edge in outgoingEdges) {
+           final targetNode = nodes.firstWhere((n) => n.id == edge.toNodeId, orElse: () => node);
+           if (targetNode.position.dy <= node.position.dy && targetNode.id != node.id) {
+              isLoop = true;
+              break;
+           }
+        }
+        if (isLoop) {
+           text = 'loop (' + text.replaceAll('\\n', ' ') + ')';
+        } else {
+           text = 'if (' + text.replaceAll('\\n', ' ') + ')';
+        }
       } else if (node.type == FlowchartNodeType.parallelogram) {
         // keep as is, maybe collapse newlines
       }
