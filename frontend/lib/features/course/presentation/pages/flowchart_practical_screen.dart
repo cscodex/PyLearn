@@ -12,7 +12,6 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:gal/gal.dart';
 import 'package:math_expressions/math_expressions.dart' hide Stack;
 import '../../domain/entities/flowchart.dart';
-import '../../domain/entities/lesson.dart';
 import '../widgets/flowchart_canvas.dart';
 import '../widgets/flowchart_node_widget.dart';
 import '../../data/repositories/flowchart_repository.dart';
@@ -113,10 +112,7 @@ late FlowchartPracticalConfig config;
   void initState() {
     super.initState();
     config = FlowchartPracticalConfig.fromJson(widget.contentBody ?? {});
-    
-    // In practical mode, we don't load from initialFlowchart, we start empty
-    // unless there's some starting state defined in config.
-
+  }
 
   final ScrollController _codeScrollController = ScrollController();
   final ScrollController _consoleScrollController = ScrollController();
@@ -436,6 +432,51 @@ late FlowchartPracticalConfig config;
         );
       },
     );
+  }
+
+
+  void _submitFlowchart() {
+    final userTypes = nodes.map((n) => n.type).toList();
+    final expectedTypes = config.expectedNodes.map((n) => n.type).toList();
+
+    int matchedCount = 0;
+    for (var expected in expectedTypes) {
+      if (userTypes.contains(expected)) {
+        matchedCount++;
+        userTypes.remove(expected);
+      }
+    }
+
+    final double accuracy = expectedTypes.isEmpty ? 1.0 : matchedCount / expectedTypes.length;
+
+    if (accuracy >= 0.8 && edges.length >= expectedTypes.length - 1) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF2C2C3E),
+          title: const Text('Success! 🎉', style: TextStyle(color: Colors.white)),
+          content: const Text('Great job building the flowchart logic!', style: TextStyle(color: Colors.white70)),
+          actions: [
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.greenAccent, foregroundColor: Colors.black),
+              onPressed: () {
+                Navigator.pop(context);
+                widget.onComplete();
+              },
+              child: const Text('Continue'),
+            )
+          ],
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not quite right. Make sure you used the correct shapes and connected them!'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   Future<void> _saveFlowchart() async {
@@ -1597,6 +1638,11 @@ late FlowchartPracticalConfig config;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: _submitFlowchart,
+        backgroundColor: Colors.greenAccent,
+        child: const Icon(Icons.check, color: Colors.black),
+      ),
       backgroundColor: const Color(0xFF1E1E2C),
       appBar: AppBar(
         backgroundColor: const Color(0xFF2C2C3E),
