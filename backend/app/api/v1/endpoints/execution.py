@@ -9,6 +9,7 @@ import threading
 from app.api import deps
 from app.models.user import User
 from app.schemas.execution import CodeExecutionRequest, CodeExecutionResponse, EvaluationRequest, EvaluationResponse
+from pydantic import BaseModel
 from app.services.code_execution import execute_python_code, _run_in_process_interactive, check_code_security, CodeExecutionError
 from app.services.ai_evaluator import ai_evaluator
 from app.models.assessment import CodingChallenge, TestCase, CodeSubmission
@@ -43,6 +44,18 @@ async def execute_code(
         xp_earned=xp_earned,
         plots=result.get("plots", [])
     )
+
+class ComplexityAnalysisRequest(BaseModel):
+    code: str
+
+@router.post("/analyze_complexity")
+async def analyze_complexity(
+    request: ComplexityAnalysisRequest,
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Analyze Python code complexity using AI."""
+    result = await ai_evaluator.analyze_complexity(request.code)
+    return result
 
 @router.websocket("/ws")
 async def execute_code_ws(websocket: WebSocket):

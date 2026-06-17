@@ -59,5 +59,65 @@ Student's Source Code:
                 "reason": f"AI Evaluation failed: {str(e)}. Please ensure your output exactly matches the expected output."
             }
 
+    async def analyze_complexity(self, source_code: str) -> dict:
+        """
+        Analyze the time and space complexity of the given Python code.
+        Returns {"time_complexity": "O(...)", "space_complexity": "O(...)", "explanation": "..."}
+        """
+        system_message = (
+            "You are an expert algorithm analyzer. Analyze the provided Python code for Big-O time and space complexity.\n"
+            "Return ONLY a JSON object with exactly three keys:\n"
+            "1. 'time_complexity': A string like 'O(N)', 'O(N^2)', 'O(1)', etc.\n"
+            "2. 'space_complexity': A string like 'O(N)', 'O(1)', etc.\n"
+            "3. 'explanation': A short 1-2 sentence explanation of why it has this complexity."
+        )
+        try:
+            chat_completion = await self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": f"Code to analyze:\n\n{source_code}"}
+                ],
+                model="llama-3.3-70b-versatile",
+                temperature=0.0,
+                max_tokens=200,
+                response_format={"type": "json_object"}
+            )
+            return json.loads(chat_completion.choices[0].message.content)
+        except Exception as e:
+            return {
+                "time_complexity": "O(?)",
+                "space_complexity": "O(?)",
+                "explanation": f"Analysis failed: {str(e)}"
+            }
+
+    async def generate_flowchart(self, source_code: str) -> dict:
+        """
+        Convert Python code into a flowchart JSON structure compatible with React Flow / Flutter Flow properties.
+        Returns {"nodes": [...], "edges": [...]}
+        """
+        system_message = (
+            "You are an expert compiler that converts Python code into a flowchart graph.\n"
+            "Your job is to read the provided Python code and output ONLY a JSON object representing the flowchart graph.\n"
+            "The JSON must have exactly two keys: 'nodes' and 'edges'.\n"
+            "A Node object must look like: {\"id\": \"n1\", \"type\": \"input\" | \"process\" | \"output\" | \"condition\" | \"loop\" | \"start\" | \"end\", \"label\": \"code or text\", \"position\": {\"dx\": 0, \"dy\": 0}}\n"
+            "An Edge object must look like: {\"id\": \"e1\", \"source\": \"n1\", \"target\": \"n2\", \"label\": \"\" | \"True\" | \"False\"}\n"
+            "Position nodes logically, flowing top to bottom (increment dy by 100 for each step). Branch horizontally for conditions (increment/decrement dx).\n"
+            "Ensure the graph starts with a 'start' node and ends with an 'end' node."
+        )
+        try:
+            chat_completion = await self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": f"Convert this Python code to a flowchart:\n\n{source_code}"}
+                ],
+                model="llama-3.3-70b-versatile",
+                temperature=0.0,
+                max_tokens=2000,
+                response_format={"type": "json_object"}
+            )
+            return json.loads(chat_completion.choices[0].message.content)
+        except Exception as e:
+            return {"nodes": [], "edges": []}
+
 # Singleton instance
 ai_evaluator = AIEvaluator()

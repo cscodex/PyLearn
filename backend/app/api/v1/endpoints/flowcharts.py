@@ -4,10 +4,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete
 
+from pydantic import BaseModel
 from app.api import deps
 from app.models.user import User
 from app.models.saved_flowchart import SavedFlowchart
 from app.schemas.saved_flowchart import SavedFlowchart as SavedFlowchartSchema, SavedFlowchartCreate, SavedFlowchartUpdate
+from app.services.ai_evaluator import ai_evaluator
+
+class CodeGenerateRequest(BaseModel):
+    code: str
 
 router = APIRouter()
 
@@ -95,3 +100,12 @@ async def delete_saved_flowchart(
     await db.delete(flowchart)
     await db.commit()
     return {"success": True}
+
+@router.post("/generate_from_code")
+async def generate_flowchart_from_code(
+    request: CodeGenerateRequest,
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    """Generate flowchart nodes and edges from Python code using AI."""
+    result = await ai_evaluator.generate_flowchart(request.code)
+    return result
