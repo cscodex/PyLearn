@@ -753,24 +753,43 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                           ),
                         ),
                         if (_isWaitingForInput)
-                          TextField(
-                            controller: _interactiveInputController,
-                            focusNode: _interactiveInputFocusNode,
-                            style: TextStyle(fontFamily: 'monospace', color: Colors.white, fontSize: _currentFontSize),
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                            onSubmitted: (val) {
-                              if (_wsChannel != null) {
-                                _wsChannel!.sink.add(jsonEncode({"action": "input", "data": val}));
-                                setState(() {
-                                  _isWaitingForInput = false;
-                                });
-                                _interactiveInputController.clear();
-                              }
-                            },
+                            child: Row(
+                              children: [
+                                const Text('> ', style: TextStyle(color: Colors.green, fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _interactiveInputController,
+                                    focusNode: _interactiveInputFocusNode,
+                                    style: TextStyle(fontFamily: 'monospace', color: Colors.white, fontSize: _currentFontSize),
+                                    cursorColor: Colors.green,
+                                    decoration: InputDecoration(
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      hintText: 'Type input and press Return...',
+                                      hintStyle: TextStyle(color: Colors.white38, fontFamily: 'monospace', fontSize: _currentFontSize * 0.9),
+                                    ),
+                                    onSubmitted: (val) {
+                                      if (_wsChannel != null) {
+                                        _wsChannel!.sink.add(jsonEncode({"action": "input", "data": val}));
+                                        setState(() {
+                                          _isWaitingForInput = false;
+                                        });
+                                        _interactiveInputController.clear();
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         if (_plots.isNotEmpty)
                           ..._plots.map((base64String) {
