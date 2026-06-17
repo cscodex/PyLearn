@@ -36,6 +36,7 @@ class ExecutionSnapshot {
   final Map<String, List<dynamic>> arrays;
   final List<String> consoleOutput;
   final int iterations;
+  final int loopCycles;
 
   ExecutionSnapshot({
     required this.runningNodeId,
@@ -43,6 +44,7 @@ class ExecutionSnapshot {
     required this.arrays,
     required this.consoleOutput,
     required this.iterations,
+    required this.loopCycles,
   });
 
   ExecutionSnapshot clone() {
@@ -52,6 +54,7 @@ class ExecutionSnapshot {
       arrays: Map.from(arrays.map((k, v) => MapEntry(k, List.from(v)))),
       consoleOutput: List.from(consoleOutput),
       iterations: iterations,
+      loopCycles: loopCycles,
     );
   }
 }
@@ -82,6 +85,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   Map<String, double> variables = {};
   Map<String, List<dynamic>> arrays = {};
   int iterations = 0;
+  int loopCycles = 0;
   List<String> consoleOutput = [];
   List<ExecutionSnapshot> executionHistory = [];
   
@@ -621,6 +625,47 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
      return null;
   }
   
+
+  int _calculateMaxLoopDepth() {
+     List<List<double>> backEdges = [];
+     for (final edge in edges) {
+        final fromNode = nodes.firstWhere((n) => n.id == edge.fromNodeId, orElse: () => nodes.first);
+        final toNode = nodes.firstWhere((n) => n.id == edge.toNodeId, orElse: () => nodes.first);
+        if (fromNode.id != toNode.id && fromNode.position.dy >= toNode.position.dy) {
+           backEdges.add([toNode.position.dy, fromNode.position.dy]);
+        }
+     }
+     if (backEdges.isEmpty) return 0;
+     
+     int maxDepth = 1;
+     for (int i = 0; i < backEdges.length; i++) {
+        int depth = 1;
+        for (int j = 0; j < backEdges.length; j++) {
+           if (i == j) continue;
+           // if backEdge[j] strictly contains backEdge[i]
+           if (backEdges[j][0] <= backEdges[i][0] && backEdges[j][1] >= backEdges[i][1]) {
+              depth++;
+           }
+        }
+        if (depth > maxDepth) maxDepth = depth;
+     }
+     return maxDepth;
+  }
+
+  String _getTimeComplexity() {
+     int depth = _calculateMaxLoopDepth();
+     if (depth == 0) return 'O(1)';
+     if (depth == 1) return 'O(n)';
+     if (depth == 2) return 'O(n²)';
+     if (depth == 3) return 'O(n³)';
+     return 'O(n^$depth)';
+  }
+
+  int _getCyclomaticComplexity() {
+     if (nodes.isEmpty) return 0;
+     return edges.length - nodes.length + 2;
+  }
+  
   void _generateStaticCode() {
     final sortedNodes = List<FlowchartNode>.from(nodes)
       ..sort((a, b) => a.position.dy.compareTo(b.position.dy));
@@ -695,6 +740,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
           arrays.clear();
           consoleOutput.clear();
           iterations = 0;
+          loopCycles = 0;
         });
 
     String? currentNodeId = startNode.id;
@@ -714,6 +760,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
               arrays = Map.from(snapshot.arrays.map((k, v) => MapEntry(k, List.from(v))));
               consoleOutput = List.from(snapshot.consoleOutput);
               iterations = snapshot.iterations;
+              loopCycles = snapshot.loopCycles;
             });
             currentNodeId = runningNodeId;
             // Un-animate edge if we step back
@@ -739,6 +786,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
         arrays: Map.from(arrays.map((k, v) => MapEntry(k, List.from(v)))),
         consoleOutput: List.from(consoleOutput),
         iterations: iterations,
+        loopCycles: loopCycles,
       ));
 
       iterations++;
@@ -1360,6 +1408,37 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
           ],
         ),
         const Divider(color: Colors.white24),
+        
+        // Complexity Badges
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                   Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                     decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blueAccent)),
+                     child: Text('Time: ${_getTimeComplexity()}', style: const TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                   ),
+                   const SizedBox(width: 8),
+                   Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                     decoration: BoxDecoration(color: Colors.purpleAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.purpleAccent)),
+                     child: Text('Complexity (V): ${_getCyclomaticComplexity()}', style: const TextStyle(color: Colors.purpleAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                   ),
+                ],
+              ),
+              if (_calculateMaxLoopDepth() > 0)
+                 Container(
+                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                   decoration: BoxDecoration(color: Colors.orangeAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.orangeAccent)),
+                   child: Text('Loop Cycles: $loopCycles', style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                 ),
+            ],
+          ),
+        ),
         
         // Static Code View
         Expanded(
