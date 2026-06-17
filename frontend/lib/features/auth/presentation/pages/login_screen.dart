@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/auth_provider.dart';
 import '../../../../core/widgets/theme_toggle_button.dart';
 
@@ -15,6 +16,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _initPackageInfo();
+  }
+
+  Future<void> _initPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = 'v${info.version} (Build ${info.buildNumber})';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -246,10 +263,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Build: 2026-06-11 18:11',
+                Text(
+                  _appVersion.isEmpty ? 'Loading...' : _appVersion,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
               ],
             ),
