@@ -1035,6 +1035,10 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
       // Animate light traveling along the edge to the next node
       if (isRunning && currentNodeId != null) {
+        final targetNode = nodes.firstWhere((n) => n.id == nextNodeId, orElse: () => node);
+        if (targetNode.position.dy <= node.position.dy && targetNode.id != currentNodeId) {
+           setState(() => loopCycles++);
+        }
         await _animateEdgeTraversal(currentNodeId!, nextNodeId);
       }
       
