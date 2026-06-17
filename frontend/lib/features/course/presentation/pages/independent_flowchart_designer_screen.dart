@@ -551,6 +551,40 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   }
 
   
+
+  bool? _evalCondition(String text) {
+     try {
+        String op = '';
+        List<String> parts = [];
+        if (text.contains('>=')) { op = '>='; parts = text.split('>='); }
+        else if (text.contains('<=')) { op = '<='; parts = text.split('<='); }
+        else if (text.contains('!=')) { op = '!='; parts = text.split('!='); }
+        else if (text.contains('==')) { op = '=='; parts = text.split('=='); }
+        else if (text.contains('>')) { op = '>'; parts = text.split('>'); }
+        else if (text.contains('<')) { op = '<'; parts = text.split('<'); }
+
+        if (parts.length == 2 && op.isNotEmpty) {
+           double left = _evalExpr(parts[0].trim());
+           double right = _evalExpr(parts[1].trim());
+           switch (op) {
+             case '>': return left > right;
+             case '<': return left < right;
+             case '>=': return left >= right;
+             case '<=': return left <= right;
+             case '==': return left == right;
+             case '!=': return left != right;
+           }
+        } else if (text.toLowerCase() == 'true') {
+           return true;
+        } else if (text.toLowerCase() == 'false') {
+           return false;
+        }
+     } catch (e) {
+        return null;
+     }
+     return null;
+  }
+  
   void _generateStaticCode() {
     final sortedNodes = List<FlowchartNode>.from(nodes)
       ..sort((a, b) => a.position.dy.compareTo(b.position.dy));
@@ -594,6 +628,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
         'nodeId': node.id,
         'text': text,
         'type': node.type,
+        'rawConditionText': node.text.trim(),
       });
     }
     setState(() {});
@@ -1323,6 +1358,20 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                  }
               }
 
+              // Append True/False if it's a condition and active
+              if (isActive && (rawText.startsWith('if (') || rawText.startsWith('loop ('))) {
+                 final rawCondition = line['rawConditionText'] as String?;
+                 if (rawCondition != null) {
+                    bool? condRes = _evalCondition(rawCondition);
+                    if (condRes != null) {
+                       spans.add(TextSpan(
+                         text: condRes ? '   ---> True' : '   ---> False',
+                         style: TextStyle(color: condRes ? Colors.greenAccent : Colors.redAccent, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+                       ));
+                    }
+                 }
+              }
+
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 margin: const EdgeInsets.only(bottom: 4),
@@ -1382,9 +1431,9 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             )
           else
             IconButton(
-              icon: const Icon(Icons.play_arrow, color: Colors.greenAccent),
+              icon: Icon(Icons.play_arrow, color: nodes.isEmpty ? Colors.grey : Colors.greenAccent),
               tooltip: 'Run Flowchart',
-              onPressed: _runFlowchart,
+              onPressed: nodes.isEmpty ? null : _runFlowchart,
             ),
           IconButton(
             icon: const Icon(Icons.save_alt),
