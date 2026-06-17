@@ -121,7 +121,11 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
        if (!_codeScrollController.hasClients) return;
        int index = staticPseudocode.indexWhere((p) => p['nodeId'] == runningNodeId);
        if (index != -1) {
-         double target = index * 35.0; // approx height
+         double target = index * 34.0;
+         if (target > _codeScrollController.position.maxScrollExtent) {
+           target = _codeScrollController.position.maxScrollExtent;
+         }
+         if (target < 0) target = 0;
          _codeScrollController.animateTo(target, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
        }
      });
@@ -130,11 +134,14 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   void _scrollToConsoleBottom() {
      WidgetsBinding.instance.addPostFrameCallback((_) {
        if (!_consoleScrollController.hasClients) return;
-       _consoleScrollController.animateTo(
-         _consoleScrollController.position.maxScrollExtent + 50,
-         duration: const Duration(milliseconds: 300),
-         curve: Curves.easeOut,
-       );
+       double target = _consoleScrollController.position.maxScrollExtent;
+       if (target > 0) {
+         _consoleScrollController.animateTo(
+           target,
+           duration: const Duration(milliseconds: 300),
+           curve: Curves.easeOut,
+         );
+       }
      });
   }
 
