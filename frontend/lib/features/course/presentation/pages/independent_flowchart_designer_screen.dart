@@ -105,10 +105,37 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
   }
 
+  final ScrollController _codeScrollController = ScrollController();
+  final ScrollController _consoleScrollController = ScrollController();
+
   @override
   void dispose() {
     _edgeAnimController?.dispose();
+    _codeScrollController.dispose();
+    _consoleScrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToActiveLine() {
+     WidgetsBinding.instance.addPostFrameCallback((_) {
+       if (!_codeScrollController.hasClients) return;
+       int index = staticPseudocode.indexWhere((p) => p['nodeId'] == runningNodeId);
+       if (index != -1) {
+         double target = index * 35.0; // approx height
+         _codeScrollController.animateTo(target, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+       }
+     });
+  }
+
+  void _scrollToConsoleBottom() {
+     WidgetsBinding.instance.addPostFrameCallback((_) {
+       if (!_consoleScrollController.hasClients) return;
+       _consoleScrollController.animateTo(
+         _consoleScrollController.position.maxScrollExtent + 50,
+         duration: const Duration(milliseconds: 300),
+         curve: Curves.easeOut,
+       );
+     });
   }
 
   Future<void> _animateEdgeTraversal(String fromNodeId, String toNodeId) async {
@@ -147,6 +174,8 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
     redoStack.clear();
   }
+
+
 
   void _undo() {
     if (undoStack.isEmpty) return;
@@ -644,24 +673,28 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     );
 
     _generateStaticCode();
-    
     setState(() {
-      isRunning = true;
-      isPaused = false;
-      stepNext = false;
-      stepPrev = false;
-      executionHistory.clear();
-      runningNodeId = startNode.id;
-      variables.clear();
-      arrays.clear();
-      consoleOutput.clear();
-      iterations = 0;
-    });
+          isPaused = true;
+        });
+        _scrollToActiveLine();
+        setState(() {
+          isPaused = false;
+          isRunning = true;
+          stepNext = false;
+          stepPrev = false;
+          executionHistory.clear();
+          runningNodeId = startNode.id;
+          variables.clear();
+          arrays.clear();
+          consoleOutput.clear();
+          iterations = 0;
+        });
 
     String? currentNodeId = startNode.id;
 
     while (currentNodeId != null && isRunning) {
       setState(() => runningNodeId = currentNodeId);
+      _scrollToActiveLine();
       
       if (isPaused) {
         if (stepPrev) {
@@ -806,7 +839,10 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                   final temp = v1['value'] as double;
                   _setArrayElement(swapParts[0], v2['value'] as double);
                   _setArrayElement(swapParts[1], temp);
-                  setState(() => consoleOutput.add("> Swapped ${swapParts[0]} ↔ ${swapParts[1]}"));
+                  setState(() {
+                    consoleOutput.add("> Swapped ${swapParts[0]} ↔ ${swapParts[1]}");
+                  });
+                  _scrollToConsoleBottom();
                 }
               } catch (e) {
                 setState(() => consoleOutput.add("> Error in swap: $e"));
@@ -849,7 +885,10 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                   variables[lhs] = val;
                   setState((){});
                 } catch (e) {
-                  setState(() => consoleOutput.add("> Error evaluating $rhs: $e"));
+                  setState(() {
+                    consoleOutput.add("> Error evaluating $rhs: $e");
+                  });
+                  _scrollToConsoleBottom();
                 }
               }
             }
@@ -1290,14 +1329,24 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                   scrollDirection: Axis.horizontal,
                   reverse: true,
                   child: Row(
-                    children: varColors.entries.map((e) => Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: e.value, borderRadius: BorderRadius.circular(12)),
-                        child: Text(e.key, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
-                      ),
-                    )).toList(),
+                    children: varColors.entries.map((e) {
+                      String valStr = '';
+                      if (variables.containsKey(e.key)) {
+                         final v = variables[e.key]!;
+                         valStr = v == v.truncateToDouble() ? v.toInt().toString() : v.toString();
+                      } else if (arrays.containsKey(e.key)) {
+                         valStr = arrays[e.key]!.map((a) => a == a.truncateToDouble() ? a.toInt() : a).toList().toString();
+                      }
+                      final displayStr = valStr.isNotEmpty ? '${e.key}: $valStr' : e.key;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: e.value, borderRadius: BorderRadius.circular(12)),
+                          child: Text(displayStr, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 10)),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
               ),
@@ -1309,6 +1358,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
         Expanded(
           flex: 3,
           child: ListView.builder(
+            controller: _codeScrollController,
             itemCount: staticPseudocode.length,
             itemBuilder: (context, index) {
               final line = staticPseudocode[index];
@@ -1398,6 +1448,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
           Expanded(
             flex: 1,
             child: ListView.builder(
+              controller: _consoleScrollController,
               itemCount: consoleOutput.length,
               itemBuilder: (context, index) {
                 return Text(consoleOutput[index], style: const TextStyle(color: Colors.green, fontFamily: 'monospace', fontSize: 12));
