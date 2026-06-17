@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
+import queue
+import json
+import threading
 
 from app.api import deps
 from app.models.user import User
 from app.schemas.execution import CodeExecutionRequest, CodeExecutionResponse, EvaluationRequest, EvaluationResponse
-from app.services.code_execution import execute_python_code
+from app.services.code_execution import execute_python_code, _run_in_process_interactive, check_code_security, CodeExecutionError
 from app.services.ai_evaluator import ai_evaluator
 from app.models.assessment import CodingChallenge, TestCase, CodeSubmission
 from sqlalchemy import select
@@ -39,6 +43,78 @@ async def execute_code(
         xp_earned=xp_earned,
         plots=result.get("plots", [])
     )
+
+@router.websocket("/ws")
+async def execute_code_ws(websocket: WebSocket):
+    await websocket.accept()
+    
+    out_queue = queue.Queue()
+    in_queue = queue.Queue()
+    
+    try:
+        # 1. Receive the initial code payload
+        data = await websocket.receive_text()
+        payload = json.loads(data)
+        code = payload.get("code", "")
+        
+        # Security Check
+        try:
+            check_code_security(code)
+        except CodeExecutionError as e:
+            await websocket.send_json({"type": "stderr", "data": str(e) + "\n"})
+            await websocket.send_json({"type": "completed"})
+            await websocket.close()
+            return
+            
+        # 2. Start the execution thread
+        execution_thread = threading.Thread(
+            target=_run_in_process_interactive,
+            args=(code, out_queue, in_queue),
+            daemon=True
+        )
+        execution_thread.start()
+        
+        # 3. Create a task to push output to websocket
+        async def output_sender():
+            while True:
+                try:
+                    # Non-blocking check or short timeout
+                    msg = await asyncio.to_thread(out_queue.get, True, 0.1)
+                    await websocket.send_json(msg)
+                    if msg.get("type") == "completed":
+                        break
+                except queue.Empty:
+                    if not execution_thread.is_alive():
+                        await websocket.send_json({"type": "completed"})
+                        break
+                    await asyncio.sleep(0.01)
+                except WebSocketDisconnect:
+                    break
+                except Exception as e:
+                    break
+
+        sender_task = asyncio.create_task(output_sender())
+        
+        # 4. Listen for user input
+        while True:
+            try:
+                recv_data = await websocket.receive_text()
+                recv_payload = json.loads(recv_data)
+                if recv_payload.get("action") == "input":
+                    in_queue.put(recv_payload.get("data", ""))
+            except WebSocketDisconnect:
+                break
+                
+        # Clean up
+        sender_task.cancel()
+        
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({"type": "stderr", "data": f"Server error: {e}\n"})
+        except:
+            pass
 
 @router.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate_code(

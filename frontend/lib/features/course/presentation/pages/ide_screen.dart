@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart';
 import 'package:highlight/languages/python.dart';
 import 'package:flutter_highlight/themes/monokai-sublime.dart';
@@ -57,7 +61,14 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   String _output = '';
   String? _savedOutputTabContent;
   List<String> _savedPlotsTabContent = [];
-  bool _isSuccess = false;
+  bool _isSuccess = true;
+  
+  WebSocketChannel? _wsChannel;
+  bool _isWaitingForInput = false;
+  final TextEditingController _interactiveInputController = TextEditingController();
+  final FocusNode _interactiveInputFocusNode = FocusNode();
+  Timer? _saveTimer;
+  
   List<String> _plots = [];
   CodeFontSize _fontSize = CodeFontSize.medium;
   double _terminalHeight = 250.0;
@@ -115,6 +126,10 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   void initState() {
     super.initState();
     _savedProgramsService = ref.read(savedProgramsServiceProvider);
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
     if (widget.initialSavedProgram != null) {
       _addNewTab(
         initialCode: widget.initialSavedProgram!.code,
@@ -250,46 +265,76 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     setState(() {
       _isExecuting = true;
       _output = 'Running ${_currentTab.title}...\n';
+      _plots = [];
+      _isWaitingForInput = false;
+      _isSuccess = true;
     });
 
-    final service = ref.read(executionProvider);
-    final result = await service.executeCode(
-      _currentTab.controller.text, 
-      lessonId: widget.lessonId,
-      standardInput: _currentTab.inputController.text,
-    );
+    try {
+      final baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'https://pythontutor-api.onrender.com/api/v1');
+      final wsUrl = baseUrl.replaceFirst('http', 'ws') + '/execute/ws';
+      
+      _wsChannel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      
+      _wsChannel!.sink.add(jsonEncode({
+        "code": _currentTab.controller.text,
+      }));
 
-    if (!mounted) return;
+      _wsChannel!.stream.listen((message) {
+        if (!mounted) return;
+        final data = jsonDecode(message);
+        final type = data['type'];
+        final payload = data['data'];
 
-    setState(() {
-      _isExecuting = false;
-      _isSuccess = result['is_success'] ?? false;
-      
-      final stdout = result['stdout'] ?? '';
-      final stderr = result['stderr'] ?? '';
-      final timeMs = result['execution_time_ms'] ?? 0;
-      
-      if (stderr.toString().isNotEmpty) {
-        _output = stderr;
-      } else {
-        _output = stdout;
-      }
-      _output += '\n\n[Finished in ${timeMs}ms]';
-      
-      final rawPlots = result['plots'] as List<dynamic>?;
-      if (rawPlots != null) {
-        _plots = rawPlots.map((e) => e.toString()).toList();
-      } else {
-        _plots = [];
-      }
-      
-      // Auto-save output and code directly on run
-      _savedOutputTabContent = _output;
-      _savedPlotsTabContent = List.from(_plots);
-    });
-    
-    // Perform the save
-    await _saveProgram();
+        setState(() {
+          if (type == 'stdout' || type == 'stderr') {
+            _output += payload;
+            if (type == 'stderr') _isSuccess = false;
+          } else if (type == 'plot') {
+            _plots.add(payload);
+          } else if (type == 'input_request') {
+            _isWaitingForInput = true;
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted) _interactiveInputFocusNode.requestFocus();
+            });
+          } else if (type == 'completed') {
+            _isExecuting = false;
+            _isWaitingForInput = false;
+            _wsChannel?.sink.close();
+            _wsChannel = null;
+            _output += '\n\n[Execution Finished]';
+            _savedOutputTabContent = _output;
+            _savedPlotsTabContent = List.from(_plots);
+            _saveProgram();
+          }
+        });
+      }, onError: (error) {
+        if (!mounted) return;
+        setState(() {
+          _output += '\nConnection error: $error';
+          _isExecuting = false;
+          _isWaitingForInput = false;
+          _isSuccess = false;
+        });
+      }, onDone: () {
+        if (!mounted) return;
+        setState(() {
+          if (_isExecuting) {
+             _output += '\n\n[Execution Disconnected]';
+          }
+          _isExecuting = false;
+          _isWaitingForInput = false;
+        });
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isExecuting = false;
+        _isWaitingForInput = false;
+        _isSuccess = false;
+        _output += '\nFailed to connect: $e';
+      });
+    }
   }
 
   Future<void> _saveProgram() async {
@@ -652,43 +697,26 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
             height: _terminalHeight,
             child: Column(
               children: [
-                // Standard Input Area
+                // Top Terminal Toolbar
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: theme.colorScheme.surface,
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: _isExecuting ? null : _runCode,
-                  icon: _isExecuting 
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.play_arrow, color: Colors.green),
-                  tooltip: 'Run Code',
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.green.withValues(alpha: 0.1),
+                  color: theme.colorScheme.surface,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: _isExecuting ? null : _runCode,
+                        icon: _isExecuting 
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.play_arrow, color: Colors.green),
+                        tooltip: 'Run Code',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.green.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      const Spacer(),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _currentTab.inputController,
-                    decoration: const InputDecoration(
-                      labelText: 'Standard Input (for input() function)',
-                      labelStyle: TextStyle(fontSize: 12),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    ),
-                    style: TextStyle(fontFamily: 'monospace', fontSize: _currentFontSize),
-                    maxLines: 2,
-                    minLines: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Terminal Output
           Expanded(
             child: Container(
               width: double.infinity,
@@ -724,6 +752,26 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                             fontSize: _currentFontSize,
                           ),
                         ),
+                        if (_isWaitingForInput)
+                          TextField(
+                            controller: _interactiveInputController,
+                            focusNode: _interactiveInputFocusNode,
+                            style: TextStyle(fontFamily: 'monospace', color: Colors.white, fontSize: _currentFontSize),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onSubmitted: (val) {
+                              if (_wsChannel != null) {
+                                _wsChannel!.sink.add(jsonEncode({"action": "input", "data": val}));
+                                setState(() {
+                                  _isWaitingForInput = false;
+                                });
+                                _interactiveInputController.clear();
+                              }
+                            },
+                          ),
                         if (_plots.isNotEmpty)
                           ..._plots.map((base64String) {
                             return Padding(
