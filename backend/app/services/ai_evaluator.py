@@ -99,9 +99,10 @@ Student's Source Code:
             "You are an expert compiler that converts Python code into a flowchart graph.\n"
             "Your job is to read the provided Python code and output ONLY a JSON object representing the flowchart graph.\n"
             "The JSON must have exactly two keys: 'nodes' and 'edges'.\n"
-            "A Node object must look like: {\"id\": \"n1\", \"type\": \"input\" | \"process\" | \"output\" | \"condition\" | \"loop\" | \"start\" | \"end\", \"label\": \"code or text\", \"position\": {\"dx\": 0, \"dy\": 0}}\n"
-            "An Edge object must look like: {\"id\": \"e1\", \"source\": \"n1\", \"target\": \"n2\", \"label\": \"\" | \"True\" | \"False\"}\n"
-            "Position nodes logically, flowing top to bottom (increment dy by 100 for each step). Branch horizontally for conditions (increment/decrement dx).\n"
+            "A Node object must look like: {\"id\": \"n1\", \"type\": \"oval\" | \"parallelogram\" | \"rectangle\" | \"diamond\", \"text\": \"code or text\", \"x\": 0, \"y\": 0}\n"
+            "Use oval for start/end, parallelogram for input/output, rectangle for process/code, diamond for conditions/loops.\n"
+            "An Edge object must look like: {\"fromNodeId\": \"n1\", \"toNodeId\": \"n2\", \"fromAnchor\": \"bottom\", \"toAnchor\": \"top\", \"label\": \"YES\" | \"NO\" | null}\n"
+            "Position nodes logically, flowing top to bottom (increment y by 100 for each step). Branch horizontally for conditions (increment/decrement x).\n"
             "Ensure the graph starts with a 'start' node and ends with an 'end' node."
         )
         try:
