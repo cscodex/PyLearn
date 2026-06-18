@@ -1,5 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'independent_flowchart_designer_screen.dart';
+import '../../domain/entities/flowchart.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,6 +61,8 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   int _currentTabIndex = 0;
   
   bool _isExecuting = false;
+  SavedFlowchart? _generatedFlowchart;
+  bool _showFlowchartOverlay = false;
   bool _isLoading = false;
   String _output = '';
   String? _savedOutputTabContent;
@@ -260,6 +266,123 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
   ProgramTab get _currentTab => widget.inline ? _tabs.first : _tabs[_currentTabIndex];
 
 
+
+
+  Future<void> _analyzeComplexity() async {
+    final code = _currentTab.controller.text;
+    if (code.trim().isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'https://pythontutor-api.onrender.com/api/v1');
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      
+      final res = await http.post(
+        Uri.parse('$baseUrl/execute/analyze_complexity'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'code': code}),
+      );
+
+      if (mounted) Navigator.pop(context);
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Complexity Analysis'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Time: ${data['time_complexity']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 8),
+                  Text('Space: ${data['space_complexity']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 16),
+                  Text(data['explanation'] ?? ''),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))
+              ],
+            ),
+          );
+        }
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Analysis failed')));
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _generateFlowchart() async {
+    final code = _currentTab.controller.text;
+    if (code.trim().isEmpty) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'https://pythontutor-api.onrender.com/api/v1');
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      
+      final res = await http.post(
+        Uri.parse('$baseUrl/flowcharts/generate_from_code'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'code': code}),
+      );
+
+      if (mounted) Navigator.pop(context);
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Flowchart generated!')));
+          
+          final flowchartObj = SavedFlowchart(
+            id: 0,
+            title: 'AI Generated Flowchart',
+            nodes: (data['nodes'] as List<dynamic>?)?.map((e) => FlowchartNode.fromJson(e)).toList() ?? [],
+            edges: (data['edges'] as List<dynamic>?)?.map((e) => FlowchartEdge.fromJson(e)).toList() ?? [],
+            createdAt: DateTime.now(),
+          );
+
+          setState(() {
+            _generatedFlowchart = flowchartObj;
+            _showFlowchartOverlay = true;
+          });
+        }
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generation failed')));
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
 
   Future<void> _runCode() async {
     setState(() {
@@ -471,11 +594,24 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
               onPressed: _saveProgram,
             ),
           ],
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined, color: Colors.blueAccent),
+            tooltip: 'Analyze Complexity',
+            onPressed: _analyzeComplexity,
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_tree_outlined, color: Colors.purpleAccent),
+            tooltip: 'Generate Flowchart',
+            onPressed: _generateFlowchart,
+          ),
 
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
+          Positioned.fill(
+            child: Column(
+              children: [
           // Tab Bar
           Container(
             color: theme.colorScheme.surfaceContainerHighest,
@@ -629,6 +765,38 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                         ),
                       ),
                     ),
+                    Positioned(
+                      bottom: 16,
+                      right: 16,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_generatedFlowchart != null) ...[
+                            FloatingActionButton(
+                              heroTag: 'flowchart_btn',
+                              onPressed: () {
+                                setState(() {
+                                  _showFlowchartOverlay = !_showFlowchartOverlay;
+                                });
+                              },
+                              backgroundColor: theme.colorScheme.surface,
+                              elevation: 4,
+                              child: const Icon(Icons.account_tree, color: Colors.purpleAccent, size: 28),
+                            ),
+                            const SizedBox(width: 16),
+                          ],
+                          FloatingActionButton(
+                            heroTag: 'run_btn',
+                            onPressed: _isExecuting ? null : _runCode,
+                            backgroundColor: theme.colorScheme.surface,
+                            elevation: 4,
+                            child: _isExecuting 
+                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green))
+                              : const Icon(Icons.play_arrow, color: Colors.green, size: 32),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -697,26 +865,6 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
             height: _terminalHeight,
             child: Column(
               children: [
-                // Top Terminal Toolbar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: theme.colorScheme.surface,
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: _isExecuting ? null : _runCode,
-                        icon: _isExecuting 
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.play_arrow, color: Colors.green),
-                        tooltip: 'Run Code',
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.green.withValues(alpha: 0.1),
-                        ),
-                      ),
-                      const Spacer(),
-                    ],
-                  ),
-                ),
           Expanded(
             child: Container(
               width: double.infinity,
@@ -948,8 +1096,46 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
+      if (_showFlowchartOverlay && _generatedFlowchart != null)
+        Positioned.fill(
+          child: Container(
+            color: Colors.black87,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.black,
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Generated Flowchart', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () {
+                            setState(() {
+                              _showFlowchartOverlay = false;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: IndependentFlowchartDesignerScreen(
+                      initialFlowchart: _generatedFlowchart,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
     );
   }
 }
