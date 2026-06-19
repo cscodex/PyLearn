@@ -593,18 +593,77 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
               tooltip: 'Save Program',
               onPressed: _saveProgram,
             ),
-          ],
-          IconButton(
-            icon: const Icon(Icons.analytics_outlined, color: Colors.blueAccent),
-            tooltip: 'Analyze Complexity',
-            onPressed: _analyzeComplexity,
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_tree_outlined, color: Colors.purpleAccent),
-            tooltip: 'Generate Flowchart',
-            onPressed: _generateFlowchart,
-          ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.code),
+              tooltip: 'Insert Example Algorithm',
+              onSelected: (value) {
+                String newCode = '';
+                if (value == 'bubble_sort') {
+                  newCode = '''def bubble_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+    return arr
 
+# Test the function
+array = [64, 34, 25, 12, 22, 11, 90]
+print("Sorted array is:", bubble_sort(array))
+''';
+                } else if (value == 'binary_search') {
+                  newCode = '''def binary_search(arr, low, high, x):
+    if high >= low:
+        mid = (high + low) // 2
+        if arr[mid] == x:
+            return mid
+        elif arr[mid] > x:
+            return binary_search(arr, low, mid - 1, x)
+        else:
+            return binary_search(arr, mid + 1, high, x)
+    else:
+        return -1
+
+# Test the function
+arr = [2, 3, 4, 10, 40]
+x = 10
+result = binary_search(arr, 0, len(arr)-1, x)
+print("Element is present at index", result)
+''';
+                } else if (value == 'fibonacci') {
+                  newCode = '''def fibonacci(n):
+    if n <= 1:
+        return n
+    else:
+        return(fibonacci(n-1) + fibonacci(n-2))
+
+# Test the function
+nterms = 10
+print("Fibonacci sequence:")
+for i in range(nterms):
+    print(fibonacci(i))
+''';
+                }
+                setState(() {
+                  _currentTab.controller.text = newCode;
+                });
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'bubble_sort',
+                  child: Text('Bubble Sort'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'binary_search',
+                  child: Text('Binary Search'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'fibonacci',
+                  child: Text('Fibonacci (Recursive)'),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
       body: Stack(
@@ -768,12 +827,28 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                     Positioned(
                       bottom: 16,
                       right: 16,
-                      child: Row(
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          FloatingActionButton(
+                            heroTag: 'analyze_btn',
+                            onPressed: _analyzeComplexity,
+                            backgroundColor: theme.colorScheme.surface,
+                            elevation: 4,
+                            child: const Icon(Icons.analytics_outlined, color: Colors.blueAccent, size: 28),
+                          ),
+                          const SizedBox(height: 16),
+                          FloatingActionButton(
+                            heroTag: 'generate_flowchart_btn',
+                            onPressed: _generateFlowchart,
+                            backgroundColor: theme.colorScheme.surface,
+                            elevation: 4,
+                            child: const Icon(Icons.account_tree_outlined, color: Colors.purpleAccent, size: 28),
+                          ),
+                          const SizedBox(height: 16),
                           if (_generatedFlowchart != null) ...[
                             FloatingActionButton(
-                              heroTag: 'flowchart_btn',
+                              heroTag: 'display_flowchart_btn',
                               onPressed: () {
                                 setState(() {
                                   _showFlowchartOverlay = !_showFlowchartOverlay;
@@ -783,7 +858,7 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
                               elevation: 4,
                               child: const Icon(Icons.account_tree, color: Colors.purpleAccent, size: 28),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(height: 16),
                           ],
                           FloatingActionButton(
                             heroTag: 'run_btn',
