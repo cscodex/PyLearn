@@ -24,7 +24,7 @@ class ProfileNotifier extends AsyncNotifier<UserStats> {
 
   Future<void> updateProfile(String fullName, String email) async {
     final dio = ref.read(dioProvider);
-    final response = await dio.put('/auth/profile', data: {
+    await dio.put('/auth/profile', data: {
       'fullName': fullName,
       'email': email,
     });
