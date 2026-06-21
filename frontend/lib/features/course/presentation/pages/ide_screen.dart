@@ -484,11 +484,31 @@ class _IdeScreenState extends ConsumerState<IdeScreen> {
     if (widget.inline && widget.lessonId != null) {
       title = 'Lesson ${widget.lessonId} Program';
     } else {
+      final asyncPrograms = ref.read(savedProgramsProvider);
+      final currentCount = asyncPrograms.maybeWhen(
+        data: (list) => list.length,
+        orElse: () => 0,
+      );
+
       final titleController = TextEditingController(text: _currentTab.title);
       title = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Save Program'),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Save Program', style: TextStyle(fontSize: 16)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                ),
+                child: Text('$currentCount / 100 Used', style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
+              )
+            ],
+          ),
           content: TextField(
             controller: titleController,
             decoration: const InputDecoration(labelText: 'Program Title'),
@@ -1231,8 +1251,29 @@ class _SavedProgramsBottomSheet extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Your Saved Programs', style: theme.textTheme.titleLarge),
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              Expanded(
+                child: Text('Saved Programs', style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  asyncPrograms.when(
+                    data: (programs) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.5)),
+                      ),
+                      child: Text('${programs.length} / 100 Used', style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                ],
+              ),
             ],
           ),
           const Divider(),
@@ -1247,7 +1288,10 @@ class _SavedProgramsBottomSheet extends ConsumerWidget {
                   itemBuilder: (context, index) {
                     final program = programs[index];
                     return ListTile(
-                      leading: const Icon(Icons.description, color: Colors.blue),
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.blue.withOpacity(0.1),
+                        child: Text('${index + 1}', style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                      ),
                       title: Text(program.title),
                       subtitle: Text('Saved: ${program.createdAt.split('T').first}'),
                       trailing: IconButton(

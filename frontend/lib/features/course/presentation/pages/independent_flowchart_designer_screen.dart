@@ -90,10 +90,12 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   List<String> consoleOutput = [];
   bool _isWaitingForInput = false;
   String _inputVariableName = '';
-  Completer<double?>? _inputCompleter;
+  Completer<String?>? _inputCompleter;
   final FocusNode _consoleInputFocusNode = FocusNode();
   final TextEditingController _consoleInputController = TextEditingController();
   List<ExecutionSnapshot> executionHistory = [];
+  bool _flashInput = false;
+  Timer? _flashTimer;
   
   // Static Pseudo-code generation
   List<Map<String, dynamic>> staticPseudocode = []; // Stores {nodeId: ..., text: ...}
@@ -441,12 +443,32 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
       return;
     }
 
+    final flowchartsAsync = ref.read(savedFlowchartsProvider);
+    final int currentCount = flowchartsAsync.maybeWhen(
+      data: (list) => list.length,
+      orElse: () => 0,
+    );
+
     final controller = TextEditingController(text: flowchartTitle);
     final bool? shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2C2C3E),
-        title: const Text('Save Flowchart', style: TextStyle(color: Colors.white)),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Save Flowchart', style: TextStyle(color: Colors.white, fontSize: 16)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.purple.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.purpleAccent.withOpacity(0.5)),
+              ),
+              child: Text('$currentCount / 20 Used', style: const TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+            )
+          ],
+        ),
         content: TextField(
           controller: controller,
           style: const TextStyle(color: Colors.white),
@@ -671,7 +693,30 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
   int _getCyclomaticComplexity() {
      if (nodes.isEmpty) return 0;
-     return edges.length - nodes.length + 2;
+     
+     // Calculate connected components (P)
+     final Map<String, String> parent = {};
+     String find(String i) {
+       if (parent[i] == null) return i;
+       if (parent[i] == i) return i;
+       return parent[i] = find(parent[i]!);
+     }
+     void union(String i, String j) {
+       final rootI = find(i);
+       final rootJ = find(j);
+       if (rootI != rootJ) parent[rootI] = rootJ;
+     }
+     
+     for (final n in nodes) {
+       parent[n.id] = n.id;
+     }
+     for (final e in edges) {
+       union(e.fromNodeId, e.toNodeId);
+     }
+     
+     final components = nodes.map((n) => find(n.id)).toSet().length;
+     
+     return edges.length - nodes.length + 2 * components;
   }
   
   void _generateStaticCode() {
@@ -754,6 +799,57 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
     String? currentNodeId = startNode.id;
 
+    // Pre-initialize variables from Start node
+    final paramMatch = RegExp(r'\((.*?)\)').firstMatch(startNode.text);
+    if (paramMatch != null) {
+      final params = paramMatch.group(1)!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      if (params.isNotEmpty) {
+        final valStr = await _promptInput(params.join(', '));
+        if (valStr != null) {
+          final tokens = _tokenizeInput(valStr);
+          for (int i = 0; i < params.length; i++) {
+            if (i < tokens.length) {
+              final p = params[i];
+              final token = tokens[i];
+              if (token.startsWith('[') && token.endsWith(']')) {
+                 final inner = token.substring(1, token.length - 1);
+                 final elements = inner.split(',').map((e) => _evalExpr(e.trim())).toList();
+                 arrays[p] = elements;
+                 setState(() => consoleOutput.add("> Initialized array $p = $elements"));
+              } else {
+                 final val = double.tryParse(token) ?? 0.0;
+                 variables[p] = val;
+                 setState(() => consoleOutput.add("> Initialized $p = $val"));
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Pre-calculate back-edges
+    final Set<String> backEdges = {};
+    final Set<String> visited = {};
+    final Set<String> recStack = {};
+
+    void dfs(String nodeId) {
+      visited.add(nodeId);
+      recStack.add(nodeId);
+      final outgoingEdges = edges.where((e) => e.fromNodeId == nodeId);
+      for (final edge in outgoingEdges) {
+        if (!visited.contains(edge.toNodeId)) {
+          dfs(edge.toNodeId);
+        } else if (recStack.contains(edge.toNodeId)) {
+          backEdges.add('${edge.fromNodeId}->${edge.toNodeId}');
+        }
+      }
+      recStack.remove(nodeId);
+    }
+
+    for (final node in nodes) {
+      if (!visited.contains(node.id)) dfs(node.id);
+    }
+
     while (currentNodeId != null && isRunning) {
       setState(() => runningNodeId = currentNodeId);
       _scrollToActiveLine();
@@ -829,11 +925,28 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
           
           if (line.toLowerCase().startsWith('input')) {
             final vars = line.substring(5).split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-            for (final v in vars) {
-              final value = await _promptInput(v);
-              if (value != null) {
-                variables[v] = value;
-                setState(() => consoleOutput.add("> Input $v = $value"));
+            if (vars.isNotEmpty) {
+              final valStr = await _promptInput(vars.join(', '));
+              if (valStr != null) {
+                final tokens = _tokenizeInput(valStr);
+                for (int i = 0; i < vars.length; i++) {
+                  if (i < tokens.length) {
+                    final v = vars[i];
+                    final token = tokens[i];
+                    if (token.startsWith('[') && token.endsWith(']')) {
+                       final inner = token.substring(1, token.length - 1);
+                       final elements = inner.split(',').map((e) => _evalExpr(e.trim())).toList();
+                       arrays[v] = elements;
+                       setState(() => consoleOutput.add("> Input array $v = $elements"));
+                    } else {
+                       final val = double.tryParse(token);
+                       if (val != null) {
+                         variables[v] = val;
+                         setState(() => consoleOutput.add("> Input $v = $val"));
+                       }
+                    }
+                  }
+                }
               }
             }
           } else if (line.toLowerCase().startsWith('print')) {
@@ -891,12 +1004,12 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
           final line = rawLine.trim();
           if (line.isEmpty) continue;
           
-          // swap arr[i], arr[j]
-          if (line.toLowerCase().startsWith('swap ')) {
-            final swapExpr = line.substring(5).trim();
-            final swapParts = swapExpr.split(',').map((s) => s.trim()).toList();
-            if (swapParts.length == 2) {
-              try {
+          try {
+            // swap arr[i], arr[j]
+            if (line.toLowerCase().startsWith('swap ')) {
+              final swapExpr = line.substring(5).trim();
+              final swapParts = swapExpr.split(',').map((s) => s.trim()).toList();
+              if (swapParts.length == 2) {
                 final v1 = _resolveArrayAccess(swapParts[0]);
                 final v2 = _resolveArrayAccess(swapParts[1]);
                 if (v1 != null && v2 != null) {
@@ -908,56 +1021,78 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                   });
                   _scrollToConsoleBottom();
                 }
-              } catch (e) {
-                setState(() => consoleOutput.add("> Error in swap: $e"));
               }
-            }
-          } else if (line.contains('=')) {
-            final eqIndex = line.indexOf('=');
-            // Check it's not == 
-            if (eqIndex > 0 && line[eqIndex - 1] != '!' && line[eqIndex - 1] != '<' && line[eqIndex - 1] != '>' && (eqIndex + 1 >= line.length || line[eqIndex + 1] != '=')) {
-              final lhs = line.substring(0, eqIndex).trim();
-              final rhs = line.substring(eqIndex + 1).trim();
-              
-              // Array initialization: arr = [1, 2, 3]
-              if (rhs.startsWith('[') && rhs.endsWith(']')) {
-                final inner = rhs.substring(1, rhs.length - 1);
-                final elements = inner.split(',').map((e) => _evalExpr(e.trim())).toList();
-                arrays[lhs] = elements;
-                setState((){});
-              }
-              // Array element write: arr[i] = expr
-              else if (lhs.contains('[') && lhs.contains(']')) {
-                final val = _evalExpr(rhs);
-                _setArrayElement(lhs, val);
-                setState((){});
-              }
-              // len(arr)
-              else if (rhs.startsWith('len(') && rhs.endsWith(')')) {
-                final arrName = rhs.substring(4, rhs.length - 1).trim();
-                if (arrays.containsKey(arrName)) {
-                  variables[lhs] = arrays[arrName]!.length.toDouble();
-                } else {
-                  variables[lhs] = 0;
+            } else if (line.contains('=')) {
+              final eqIndex = line.indexOf('=');
+              // Check it's not == 
+              if (eqIndex > 0 && line[eqIndex - 1] != '!' && line[eqIndex - 1] != '<' && line[eqIndex - 1] != '>' && (eqIndex + 1 >= line.length || line[eqIndex + 1] != '=')) {
+                final lhs = line.substring(0, eqIndex).trim();
+                final rhs = line.substring(eqIndex + 1).trim();
+                
+                // Tuple unpacking swap (e.g. arr[j], arr[j+1] = arr[j+1], arr[j])
+                if (lhs.contains(',') && rhs.contains(',')) {
+                  final lhsParts = lhs.split(',').map((e) => e.trim()).toList();
+                  final rhsParts = rhs.split(',').map((e) => e.trim()).toList();
+                  if (lhsParts.length == rhsParts.length) {
+                    // Evaluate all RHS first
+                    final rhsVals = rhsParts.map((r) => _evalExpr(r)).toList();
+                    // Assign to all LHS
+                    for (int i = 0; i < lhsParts.length; i++) {
+                      final left = lhsParts[i];
+                      if (left.contains('[') && left.contains(']')) {
+                        _setArrayElement(left, rhsVals[i]);
+                      } else {
+                        variables[left] = rhsVals[i];
+                      }
+                    }
+                    setState(() {});
+                  }
                 }
-                setState((){});
-              }
-              // Array element read: x = arr[i]
-              else {
-                try {
+                // Array initialization: arr = [1, 2, 3]
+                else if (rhs.startsWith('[') && rhs.endsWith(']')) {
+                  final inner = rhs.substring(1, rhs.length - 1);
+                  final elements = inner.split(',').map((e) => _evalExpr(e.trim())).toList();
+                  arrays[lhs] = elements;
+                  setState((){});
+                }
+                // Array element write: arr[i] = expr
+                else if (lhs.contains('[') && lhs.contains(']')) {
+                  final val = _evalExpr(rhs);
+                  _setArrayElement(lhs, val);
+                  setState((){});
+                }
+                // len(arr)
+                else if (rhs.startsWith('len(') && rhs.endsWith(')')) {
+                  final arrName = rhs.substring(4, rhs.length - 1).trim();
+                  if (arrays.containsKey(arrName)) {
+                    variables[lhs] = arrays[arrName]!.length.toDouble();
+                  } else {
+                    variables[lhs] = 0;
+                  }
+                  setState((){});
+                }
+                // Array copy assignment: arr2 = arr1
+                else if (arrays.containsKey(rhs)) {
+                  arrays[lhs] = List.from(arrays[rhs]!);
+                  setState((){});
+                }
+                // Array element read: x = arr[i] or standard assignment
+                else {
                   final val = _evalExpr(rhs);
                   variables[lhs] = val;
                   setState((){});
-                } catch (e) {
-                  setState(() {
-                    consoleOutput.add("> Error evaluating $rhs: $e");
-                  });
-                  _scrollToConsoleBottom();
                 }
               }
             }
+          } catch (e) {
+            setState(() {
+              consoleOutput.add("> Error evaluating '$line': $e");
+              isRunning = false;
+            });
+            break;
           }
         }
+        if (!isRunning) break;
       }
 
       // Find next node
@@ -985,6 +1120,9 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             } else if (text.contains('==')) {
                op = '==';
                parts = text.split('==');
+            } else if (text.contains('=')) {
+               op = '==';
+               parts = text.split('=');
             } else if (text.contains('>')) {
                op = '>';
                parts = text.split('>');
@@ -1012,10 +1150,12 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
             }
             setState(() => consoleOutput.add("> Condition ($text) evaluated to ${result ? 'True' : 'False'}"));
          } catch (e) {
-            setState(() => consoleOutput.add("> Error evaluating condition $text"));
-         }
-
-         // Look for matching edge
+            setState(() {
+              consoleOutput.add("> Error evaluating condition $text: $e");
+              isRunning = false;
+            });
+            break;
+         }         // Look for matching edge
          final outgoing = edges.where((e) => e.fromNodeId == node.id).toList();
          final targetLabel = result ? ['yes', 'true'] : ['no', 'false'];
          
@@ -1044,11 +1184,11 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
 
       // Animate light traveling along the edge to the next node
       if (isRunning && currentNodeId != null) {
-        final targetNode = nodes.firstWhere((n) => n.id == nextNodeId, orElse: () => node);
-        if (targetNode.position.dy <= node.position.dy && targetNode.id != currentNodeId) {
+        final edgeObj = edges.where((e) => e.fromNodeId == currentNodeId && e.toNodeId == nextNodeId).firstOrNull;
+        if (edgeObj != null && backEdges.contains('${edgeObj.fromNodeId}->${edgeObj.toNodeId}')) {
            setState(() => loopCycles++);
         }
-        await _animateEdgeTraversal(currentNodeId!, nextNodeId);
+        await _animateEdgeTraversal(currentNodeId!, nextNodeId!);
       }
       
       currentNodeId = nextNodeId;
@@ -1056,6 +1196,7 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
   }
 
   double _evalExpr(String exprStr) {
+    exprStr = exprStr.replaceAll('//', '/');
     // Check if it's an array access like arr[i]
     final arrVal = _resolveArrayAccess(exprStr);
     if (arrVal != null) return arrVal['value'] as double;
@@ -1107,13 +1248,51 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
     }
   }
 
-  Future<double?> _promptInput(String varName) async {
+  List<String> _tokenizeInput(String input) {
+    List<String> tokens = [];
+    bool inBracket = false;
+    String current = '';
+    for (int i = 0; i < input.length; i++) {
+      final c = input[i];
+      if (c == '[') {
+        inBracket = true;
+        current += c;
+      } else if (c == ']') {
+        inBracket = false;
+        current += c;
+      } else if ((c == ' ' || c == ',') && !inBracket) {
+        if (current.isNotEmpty) {
+          tokens.add(current);
+          current = '';
+        }
+      } else {
+        current += c;
+      }
+    }
+    if (current.isNotEmpty) tokens.add(current);
+    return tokens;
+  }
+
+  Future<String?> _promptInput(String varName) async {
      setState(() {
         _isWaitingForInput = true;
         _inputVariableName = varName;
-        _inputCompleter = Completer<double?>();
+        _inputCompleter = Completer<String?>();
         _consoleInputController.clear();
-        consoleOutput.add("> Waiting for input: $varName");
+        if (varName.contains(',')) {
+            consoleOutput.add("> Waiting for input: $varName (type values separated by space)");
+        } else {
+            consoleOutput.add("> Waiting for input: $varName (e.g. 10 or [1,2,3])");
+        }
+     });
+     _flashTimer?.cancel();
+     _flashInput = true;
+     _flashTimer = Timer.periodic(const Duration(milliseconds: 500), (t) {
+        if (!mounted || !_isWaitingForInput) {
+            t.cancel();
+            return;
+        }
+        setState(() => _flashInput = !_flashInput);
      });
      _scrollToConsoleBottom();
      WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1136,28 +1315,56 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                 if (flowcharts.isEmpty) {
                   return const Center(child: Text('No saved flowcharts found.', style: TextStyle(color: Colors.white70)));
                 }
-                return ListView.builder(
-                  itemCount: flowcharts.length,
-                  itemBuilder: (context, index) {
-                    final flowchart = flowcharts[index];
-                    return ListTile(
-                      title: Text(flowchart.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: Text('${flowchart.nodes.length} nodes', style: const TextStyle(color: Colors.white54)),
-                      trailing: const Icon(Icons.download, color: Colors.purpleAccent),
-                      onTap: () {
-                        setState(() {
-                          loadedFlowchartId = flowchart.id;
-                          flowchartTitle = flowchart.title;
-                          nodes = List.from(flowchart.nodes);
-                          edges = List.from(flowchart.edges);
-                          selectedNodeId = null;
-                          connectingFromNodeId = null;
-                          connectingFromAnchor = null;
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Saved Flowcharts', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.purpleAccent.withOpacity(0.5)),
+                            ),
+                            child: Text('${flowcharts.length} / 20 Used', style: const TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                          )
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: flowcharts.length,
+                        itemBuilder: (context, index) {
+                          final flowchart = flowcharts[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.purple.withOpacity(0.2),
+                              child: Text('${index + 1}', style: const TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold)),
+                            ),
+                            title: Text(flowchart.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            subtitle: Text('${flowchart.nodes.length} nodes', style: const TextStyle(color: Colors.white54)),
+                            trailing: const Icon(Icons.download, color: Colors.purpleAccent),
+                            onTap: () {
+                              setState(() {
+                                loadedFlowchartId = flowchart.id;
+                                flowchartTitle = flowchart.title;
+                                nodes = List.from(flowchart.nodes);
+                                edges = List.from(flowchart.edges);
+                                selectedNodeId = null;
+                                connectingFromNodeId = null;
+                                connectingFromAnchor = null;
+                              });
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -1256,6 +1463,8 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                               _helpSection('Input', [
                                 'input x          ← prompt for x',
                                 'input x, y       ← prompt multiple',
+                                'input arr        ← prompt array (type [1,2,3])',
+                                'input n, arr     ← multiple w/ arrays',
                               ]),
                               _helpSection('Print', [
                                 'print x',
@@ -1551,28 +1760,26 @@ class _IndependentFlowchartDesignerScreenState extends ConsumerState<Independent
                             child: TextField(
                               controller: _consoleInputController,
                               focusNode: _consoleInputFocusNode,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               style: const TextStyle(color: Colors.greenAccent, fontFamily: 'monospace', fontSize: 12),
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 isDense: true,
-                                contentPadding: EdgeInsets.only(bottom: 8),
-                                border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.greenAccent)),
-                                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.greenAccent)),
-                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.greenAccent)),
+                                contentPadding: const EdgeInsets.only(bottom: 8),
+                                border: UnderlineInputBorder(borderSide: BorderSide(color: _flashInput ? Colors.purpleAccent : Colors.greenAccent, width: _flashInput ? 2 : 1)),
+                                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _flashInput ? Colors.purpleAccent : Colors.greenAccent, width: _flashInput ? 2 : 1)),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: _flashInput ? Colors.purpleAccent : Colors.greenAccent, width: _flashInput ? 2 : 1)),
                               ),
                               onSubmitted: (val) {
-                                double? parsed = double.tryParse(val);
-                                if (parsed != null) {
+                                if (val.trim().isNotEmpty) {
                                    setState(() {
                                       _isWaitingForInput = false;
                                       // replace the "waiting for input" line with the actual input
                                       if (consoleOutput.isNotEmpty && consoleOutput.last.startsWith("> Waiting for input:")) {
-                                         consoleOutput[consoleOutput.length - 1] = "> Entered $_inputVariableName = $parsed";
+                                         consoleOutput[consoleOutput.length - 1] = "> Entered $_inputVariableName = $val";
                                       }
                                    });
-                                   _inputCompleter?.complete(parsed);
+                                   _inputCompleter?.complete(val.trim());
                                 } else {
-                                   setState(() => consoleOutput.add("> Error: Invalid number"));
+                                   setState(() => consoleOutput.add("> Error: Input cannot be empty"));
                                    _scrollToConsoleBottom();
                                    _consoleInputFocusNode.requestFocus();
                                 }

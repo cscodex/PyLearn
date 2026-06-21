@@ -715,7 +715,30 @@ late FlowchartPracticalConfig config;
 
   int _getCyclomaticComplexity() {
      if (nodes.isEmpty) return 0;
-     return edges.length - nodes.length + 2;
+     
+     // Calculate connected components (P)
+     final Map<String, String> parent = {};
+     String find(String i) {
+       if (parent[i] == null) return i;
+       if (parent[i] == i) return i;
+       return parent[i] = find(parent[i]!);
+     }
+     void union(String i, String j) {
+       final rootI = find(i);
+       final rootJ = find(j);
+       if (rootI != rootJ) parent[rootI] = rootJ;
+     }
+     
+     for (final n in nodes) {
+       parent[n.id] = n.id;
+     }
+     for (final e in edges) {
+       union(e.fromNodeId, e.toNodeId);
+     }
+     
+     final components = nodes.map((n) => find(n.id)).toSet().length;
+     
+     return edges.length - nodes.length + 2 * components;
   }
   
   void _generateStaticCode() {
@@ -797,6 +820,29 @@ late FlowchartPracticalConfig config;
         });
 
     String? currentNodeId = startNode.id;
+
+    // Pre-calculate back-edges
+    final Set<String> backEdges = {};
+    final Set<String> visited = {};
+    final Set<String> recStack = {};
+
+    void dfs(String nodeId) {
+      visited.add(nodeId);
+      recStack.add(nodeId);
+      final outgoingEdges = edges.where((e) => e.fromNodeId == nodeId);
+      for (final edge in outgoingEdges) {
+        if (!visited.contains(edge.toNodeId)) {
+          dfs(edge.toNodeId);
+        } else if (recStack.contains(edge.toNodeId)) {
+          backEdges.add('${edge.fromNodeId}->${edge.toNodeId}');
+        }
+      }
+      recStack.remove(nodeId);
+    }
+
+    for (final node in nodes) {
+      if (!visited.contains(node.id)) dfs(node.id);
+    }
 
     while (currentNodeId != null && isRunning) {
       setState(() => runningNodeId = currentNodeId);
@@ -1088,11 +1134,11 @@ late FlowchartPracticalConfig config;
 
       // Animate light traveling along the edge to the next node
       if (isRunning && currentNodeId != null) {
-        final targetNode = nodes.firstWhere((n) => n.id == nextNodeId, orElse: () => node);
-        if (targetNode.position.dy <= node.position.dy && targetNode.id != currentNodeId) {
+        final edgeObj = edges.where((e) => e.fromNodeId == currentNodeId && e.toNodeId == nextNodeId).firstOrNull;
+        if (edgeObj != null && backEdges.contains('${edgeObj.fromNodeId}->${edgeObj.toNodeId}')) {
            setState(() => loopCycles++);
         }
-        await _animateEdgeTraversal(currentNodeId!, nextNodeId);
+        await _animateEdgeTraversal(currentNodeId!, nextNodeId!);
       }
       
       currentNodeId = nextNodeId;
