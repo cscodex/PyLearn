@@ -149,7 +149,7 @@ class GroupManagementScreen extends ConsumerWidget {
   }
 
   Future<void> _importStudentsCSV(BuildContext context, WidgetRef ref, CreatorGroup group) async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
     );
